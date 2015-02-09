@@ -2,6 +2,7 @@
 from soccer_base import *
 import strategies
 import mdpsoccer
+from operator import itemgetter
 
 ###############################################################################
 # SoccerPlayer
@@ -145,4 +146,95 @@ class SoccerTeam:
             return self.players[index]
         return self._players[index]
     def __str__(self):
-        return self.name+" ("+ str(self.club)+"): " +" | ".join(map(str,self.players))
+        return self.name+"("+ str(self.club)+")"
+
+
+class SoccerClub:
+    def __init__(self,login=None):
+        self.name=login
+        self.teams=dict()
+        self.login=login
+        self._exceptions=[]
+
+    def get_num_teams(self):
+        return sum([ len(team) for team in self.teams.values()])
+
+    def get_all_teams(self):
+        return [x for i in self.teams.keys() for x in self.get_teams(i) ]
+    def get_teams(self,i):
+        if i in self.teams:
+            return self.teams[i].values()
+        return []
+    def add_team(self,team):
+        nbp = team.num_players
+        if nbp not in self.teams:
+            self.teams[nbp]=dict()
+        if team.name not in self.teams[nbp]:
+            self.teams[nbp][team.name]=team
+            team.club=self
+
+    def add_teams(self,teams):
+        for team in teams:
+            self.add_team(team)
+
+    def __str__(self):
+        return self.name
+
+
+
+class SoccerTournament:
+    def __init__(self,name,list_games=[1,2,4],same_club=False):
+        self.clubs=[]
+        self.name=name
+        self.list_games=list_games
+        self.battles=dict()
+        self.battles_by_club=dict()
+        self.teams_score=dict()
+        self.same_club=same_club
+    def add_club(self,club):
+        self.clubs.append(club)
+
+    def init_battles(self):
+        self.battles=dict()
+        self.battles_by_club=dict()
+        self.teams_score=dict()
+        for nbp in self.list_games:
+            self.battles[nbp]=list()
+            self.battles_by_club[nbp]=dict()
+            self.teams_score[nbp]=dict()
+            for club in self.clubs:
+                self.battles_by_club[nbp][club.login]=list()
+                self.teams_score[nbp][club]=dict()
+        for club1 in range(len(self.clubs)):
+            for club2 in range(club1+1 if not self.same_club else club1,len(self.clubs)):
+                for nbp in self.list_games:
+                    for team1 in self.clubs[club1].get_teams(nbp):
+                        for team2 in self.clubs[club2].get_teams(nbp):
+                            b = mdpsoccer.SoccerBattle(team1,team2)
+                            self.battles[nbp].append(b)
+                            self.battles_by_club[nbp][self.clubs[club1].login].append(b)
+                            self.battles_by_club[nbp][self.clubs[club2].login].append(b)
+                            self.teams_score[nbp][self.clubs[club1]][team1]=0
+                            self.teams_score[nbp][self.clubs[club2]][team2]=0
+    def do_battles(self):
+        for nbp in self.list_games:
+            print "Tournoi %d joueurs" % (nbp,)
+            for i,b in enumerate(self.battles[nbp]):
+                b.run_multiple_battles(5,5000)
+                print "Game ended %d/%d: %s" % (i,len(self.battles[nbp]),b)
+                if b.score_team1 > b.score_team2:
+                    self.teams_score[nbp][b.team1.club][b.team1]+=3
+                if b.score_team2 > b.score_team1:
+                    self.teams_score[nbp][b.team2.club][b.team2]+=3
+                if b.score_team2 == b.score_team1:
+                    self.teams_score[nbp][b.team1.club][b.team1]+=1
+                    self.teams_score[nbp][b.team2.club][b.team2]+=1
+
+
+    def get_best_team_by_club(self):
+        res=dict()
+        for nbp in self.list_games:
+            res[nbp]=dict()
+            for c in self.clubs:
+                res[nbp][c]=sorted(self.teams_score[nbp][c].items(),key=itemgetter(1),reverse=True)[0]
+        return res

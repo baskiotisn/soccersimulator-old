@@ -196,11 +196,17 @@ class SoccerBattle(object):
             raise BattleException("Les equipes n'ont pas le meme nombre de joeurs")
         self.team1=team1
         self.team2=team2
-        self.score=Score()
+        self.score_team1=0
+        self.score_team2=0
+        self.score_draw=0
         self.listeners=SoccerEvents()
 
     def __str__(self):
-        return "%s vs %s : %s" %(str(self.team1), str(self.team2), str(self.score))
+        return "%s vs %s : %s-%s (%s)" %(str(self.team1), str(self.team2), str(self.score_team1),str(self.score_team2),str(self.score_draw))
+    def init_score(self):
+        self.score_team1=0
+        self.score_team2=0
+        self.score_draw=0
     @property
     def num_players(self):
         return self.team1.num_players
@@ -208,8 +214,7 @@ class SoccerBattle(object):
         self._father=father
         self.run_multiple_battles(battles_count,max_steps)
     def run_multiple_battles(self,battles_count=1,max_steps=MAX_GAME_STEPS):
-        if not max_steps:
-            max_steps=MAX_GAME_STEPS
+        self.init_score()
         self.listeners.begin_battles(battles_count)
         for i in range(battles_count):
             self.run(max_steps)
@@ -245,7 +250,12 @@ class SoccerBattle(object):
                     break
                 if hasattr(self,"_father") and self._father.stop_thread:
                     break
-            self.score.add_result(state.winning_team)
+            if state.winning_team==1:
+                self.score_team1+=1
+            if state.winning_team==2:
+                self.score_team2+=1
+            if state.winning_team==0:
+                self.score_draw+=1
             return state.winning_team
 
     def create_initial_state(self):
