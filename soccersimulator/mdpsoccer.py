@@ -235,8 +235,8 @@ class SoccerBattle(object):
     def run(self,max_steps):
             state=self.create_initial_state()
             result=-1
-            statecopy= deepcopy(state)
-            self.start_battle(statecopy)
+            st= deepcopy(state)
+            self.start_battle(st)
             for p in st.team1.players:
                 self.team1[p].strategy=st.team1[p].strategy
             for p in st.team2.players:
