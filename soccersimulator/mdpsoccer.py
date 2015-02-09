@@ -238,17 +238,17 @@ class SoccerBattle(object):
             st= deepcopy(state)
             self.start_battle(st)
             for p in st.team1.players:
-                self.team1[p.name].strategy=st.team1[p.name].strategy
+                state.team1[p.name].strategy=st.team1[p.name].strategy
             for p in st.team2.players:
-                self.team2[p.name].strategy=st.team2[p.name].strategy
+                state.team2[p.name].strategy=st.team2[p.name].strategy
 
             for i in range(max_steps):
                 st=deepcopy(state)
                 state.apply_actions(st.team1.compute_strategies(st,1),st.team2.compute_strategies(st,2))
                 for p in st.team1.players:
-                    self.team1[p.name].strategy=st.team1[p.name].strategy
+                    state.team1[p.name].strategy=st.team1[p.name].strategy
                 for p in st.team2.players:
-                    self.team2[p.name].strategy=st.team2[p.name].strategy
+                    state.team2[p.name].strategy=st.team2[p.name].strategy
                 self.listeners.update_battle(state,i)
                 while  sum(self.listeners.is_ready())!=len(self.listeners):
                     time.sleep(0.0001)
