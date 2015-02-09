@@ -3,6 +3,7 @@ from soccer_base import *
 from soccerobj import SoccerBall
 import numpy as np
 import time
+from copy import deepcopy
 
 
 ###############################################################################
@@ -14,8 +15,6 @@ class SoccerAction(object):
         self.acceleration=acceleration
         self.shoot=shoot
 
-    def copy(self):
-        return SoccerAction(self.acceleration,self.shoot)
 
 
 ###############################################################################
@@ -30,10 +29,6 @@ class SoccerState:
         self.ball=ball
         self._width=GAME_WIDTH
         self._height=GAME_HEIGHT
-    def copy(self):
-        res=SoccerState(self.team1.copy(),self.team2.copy(),self.ball.copy())
-        res._winning_team=self._winning_team
-        return res
     @property
     def winning_team(self):
         return self._winning_team
@@ -193,7 +188,38 @@ class SoccerState:
 class SoccerBattle(object):
     def __init__(self,team1,team2):
         if team1.num_players != team2.num_players:
+            raise BattleException("Le
+                self.ball.position=Vector2D(self.width-(pos.x-self.width),pos.y)
+                self.ball.speed=Vector2D(-speed.x,speed.y)
+        if pos.y>self.height:
+            self.ball.position=Vector2D(pos.x,self.height-(pos.y-self.height))
+            self.ball.speed=Vector2D(speed.x,-speed.y)
+    def __str__(self):
+        return str(self.ball)+"\n"+ str(self.team1)+"\n"+str(self.team2)
+
+###############################################################################
+# SoccerBattle
+###############################################################################
+
+class SoccerBattle(object):
+    def __init__(self,team1,team2):
+        if team1.num_players != team2.num_players:
             raise BattleException("Les equipes n'ont pas le meme nombre de joeurs")
+        self.team1=team1
+        self.team2=team2
+        self.score_team1=0
+        self.score_team2=0
+        self.score_draw=0
+        self.listeners=SoccerEvents()
+
+    def __str__(self):
+        return "%s vs %s : %s-%s (%s)" %(str(self.team1), str(self.team2), str(self.score_team1),str(self.score_team2),str(self.score_draw))
+    def init_score(self):
+        self.score_team1=0
+        self.score_team2=0
+        self.score_draw=0
+    @property
+    def ns equipes n'ont pas le meme nombre de joeurs")
         self.team1=team1
         self.team2=team2
         self.score_team1=0
@@ -239,10 +265,15 @@ class SoccerBattle(object):
     def run(self,max_steps):
             state=self.create_initial_state()
             result=-1
-            self.start_battle(state.copy())
+            statecopy= deepcopy(state)
+            self.start_battle(statecopy)
             for i in range(max_steps):
-                st=state.copy()
+                st=deepcopy(state)
                 state.apply_actions(st.team1.compute_strategies(st,1),st.team2.compute_strategies(st,2))
+                for p in st.team1.players:
+                    self.team1[p].strategy=st.team1[p].strategy
+                for p in st.team2.players:
+                    self.team2[p].strategy=st.team2[p].strategy
                 self.listeners.update_battle(state,i)
                 while  sum(self.listeners.is_ready())!=len(self.listeners):
                     time.sleep(0.0001)
@@ -259,7 +290,7 @@ class SoccerBattle(object):
             return state.winning_team
 
     def create_initial_state(self):
-        state=SoccerState(self.team1.copy(),self.team2.copy(),SoccerBall())
+        state=SoccerState(deepcopy(self.team1),deepcopy(self.team2),SoccerBall())
         quarters=[i*state.height/4 for i in range(1,4)]
         rows=[state.width*0.1,state.width*0.35,state.width*(1-0.35),state.width*(1-0.1)]
         if self.num_players!=1 and self.num_players!=2 and self.num_players !=4:

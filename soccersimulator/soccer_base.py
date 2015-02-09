@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import numpy as np
-
+from copy import deepcopy
 ###############################################################################
 # Constantes
 ###############################################################################
@@ -43,6 +43,8 @@ class Vector2D(object):
         :type y: float
         """
         self._v=np.array((float(x),float(y)))
+    def copy(self):
+        return Vector2D(self.x,self.y)
     def __str__(self):
         return "(%f,%f)" % (self.x,self.y)
     def __repr__(self):
@@ -127,9 +129,6 @@ class Vector2D(object):
         """
         self.x*=a
         self.y*=a
-    def copy(self):
-        """Return a copy of the vector"""
-        return Vector2D(self.x,self.y)
 
     @staticmethod
     def create_polar(angle,norm):
@@ -160,8 +159,6 @@ class Score(object):
         self._victoires_team1=v_team1
         self._victoires_team2=v_team2
         self._draw=num_draw
-    def copy(self):
-        return Score(self,self.victoires_team1,self.victoires_team2,self.num_draw)
     @property
     def score_team1(self):
         return self._victoires_team1*3+self._draw

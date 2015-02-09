@@ -3,6 +3,7 @@ from soccer_base import *
 import strategies
 import mdpsoccer
 from operator import itemgetter
+from copy import deepcopy
 
 ###############################################################################
 # SoccerPlayer
@@ -15,8 +16,6 @@ class SoccerBall(object):
     @property
     def angle(self):
         return self.speed.angle
-    def copy(self):
-        return SoccerBall(self.position.copy(),self.speed.copy())
     def __str__(self):
         return "Ball : %s %s"% (self.position,self.speed)
 
@@ -37,7 +36,7 @@ class SoccerPlayer(object):
         if strat:
             if not isinstance(strat,strategies.SoccerStrategy):
                 raise PlayerException("La stratégie n'herite pas de la classe SoccerStrategy")
-            self._strategy=strat.copy()
+            self._strategy=deepcopy(strat)
     @property
     def name(self):
         return self._name
@@ -56,13 +55,6 @@ class SoccerPlayer(object):
     @property
     def normed_position(self):
         return Vector2D(self.position.x/SoccerState.GAME_WIDTH, self.position.y/SoccerState.GAME_HEIGHT)
-    def copy(self):
-        res=SoccerPlayer(self._name,self._strategy)
-        res.position=self.position.copy()
-        res.angle=self.angle
-        res.speed=self.speed
-        res._num_before_shoot=self._num_before_shoot
-        return res
     def can_shoot(self):
         return self.get_num_before_shoot()<1
     @property
@@ -70,7 +62,7 @@ class SoccerPlayer(object):
         return self._strategy
     @strategy.setter
     def strategy(self,strat):
-        self._strategy=strat.copy()
+        self._strategy=strat
     def compute_strategy(self,state,teamid):
         if self._strategy:
             return self.strategy.compute_strategy(state,self,teamid)
@@ -87,12 +79,6 @@ class SoccerTeam:
         self._players=dict()
         self._club=None
 
-    def copy(self):
-        team=SoccerTeam(self._name,self._club)
-        team._exceptions=list(team._exceptions)
-        for name,p in self._players.items():
-            team.add_player(p.copy())
-        return team
     @property
     def club(self):
         return self._club
@@ -124,7 +110,6 @@ class SoccerTeam:
     @property
     def players(self):
         return self._players.values()
-    @property
     def dic_players(self):
         return self._players
     def compute_strategies(self,state,teamid):

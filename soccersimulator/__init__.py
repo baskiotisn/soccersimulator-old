@@ -10,4 +10,4 @@ from interfaces import ConsoleListener, PygletObserver, LogListener, AbstractSoc
 from soccerobj import SoccerTeam, SoccerPlayer, SoccerBall, SoccerClub, SoccerTournament
 from mdpsoccer import SoccerBattle, SoccerAction, SoccerState, Events, SoccerEvents
 
-__version__='0.9.2014'
+__version__='0.9.2015'

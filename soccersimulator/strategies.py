@@ -16,5 +16,4 @@ class SoccerStrategy:
     @property
     def name(self):
         return self.name
-    def copy(self):
-        return self.__class__(self.name)
+    
