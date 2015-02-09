@@ -181,21 +181,6 @@ class SoccerState:
     def __str__(self):
         return str(self.ball)+"\n"+ str(self.team1)+"\n"+str(self.team2)
 
-###############################################################################
-# SoccerBattle
-###############################################################################
-
-class SoccerBattle(object):
-    def __init__(self,team1,team2):
-        if team1.num_players != team2.num_players:
-            raise BattleException("Le
-                self.ball.position=Vector2D(self.width-(pos.x-self.width),pos.y)
-                self.ball.speed=Vector2D(-speed.x,speed.y)
-        if pos.y>self.height:
-            self.ball.position=Vector2D(pos.x,self.height-(pos.y-self.height))
-            self.ball.speed=Vector2D(speed.x,-speed.y)
-    def __str__(self):
-        return str(self.ball)+"\n"+ str(self.team1)+"\n"+str(self.team2)
 
 ###############################################################################
 # SoccerBattle
@@ -205,21 +190,6 @@ class SoccerBattle(object):
     def __init__(self,team1,team2):
         if team1.num_players != team2.num_players:
             raise BattleException("Les equipes n'ont pas le meme nombre de joeurs")
-        self.team1=team1
-        self.team2=team2
-        self.score_team1=0
-        self.score_team2=0
-        self.score_draw=0
-        self.listeners=SoccerEvents()
-
-    def __str__(self):
-        return "%s vs %s : %s-%s (%s)" %(str(self.team1), str(self.team2), str(self.score_team1),str(self.score_team2),str(self.score_draw))
-    def init_score(self):
-        self.score_team1=0
-        self.score_team2=0
-        self.score_draw=0
-    @property
-    def ns equipes n'ont pas le meme nombre de joeurs")
         self.team1=team1
         self.team2=team2
         self.score_team1=0
@@ -267,6 +237,11 @@ class SoccerBattle(object):
             result=-1
             statecopy= deepcopy(state)
             self.start_battle(statecopy)
+            for p in st.team1.players:
+                self.team1[p].strategy=st.team1[p].strategy
+            for p in st.team2.players:
+                self.team2[p].strategy=st.team2[p].strategy
+
             for i in range(max_steps):
                 st=deepcopy(state)
                 state.apply_actions(st.team1.compute_strategies(st,1),st.team2.compute_strategies(st,2))
