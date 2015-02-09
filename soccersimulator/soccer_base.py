@@ -10,7 +10,7 @@ GAME_WIDTH=150
 GAME_HEIGHT=90
 GAME_GOAL_HEIGHT=20
 PLAYER_RADIUS=1.
-BALL_RADIUS=0.65    
+BALL_RADIUS=0.65
 maxPlayerAcceleration=0.1
 playerBrackConstant=0.1
 ballBrakeSquare=0.01
@@ -20,23 +20,23 @@ maxBallAcceleration=5.
 maxPlayerShoot=2.
 shootRandomAngle=0.1
 nbWithoutShoot=10
-MAX_GAME_STEPS=3000
+MAX_GAME_STEPS=5000
 
 
 class Vector2D(object):
-    """ 2D vector oject and operations with float coordinates    
+    """ 2D vector oject and operations with float coordinates
 
     :Example:
-    
+
     >>> from tools import Vector2D
     >>> o=Vector2D()
     >>> v=Vector2D(2,3)
     >>> w = Vector2D.create_random()
-    >>> w=v+v            
-    """    
+    >>> w=v+v
+    """
 
     def __init__(self,x=0,y=0):
-        """ create a vector 
+        """ create a vector
         :param x: 1st coordinate
         :param y: 2nd coordiante
         :type x: float
@@ -54,19 +54,19 @@ class Vector2D(object):
     def __add__(self,other):
         return Vector2D(self.x+other.x,self.y+other.y)
     def __sub__(self,other):
-        return Vector2D(self.x-other.x,self.y-other.y)    
+        return Vector2D(self.x-other.x,self.y-other.y)
     def __iadd__(self,other):
        self.x+=other.x
        self.y+=other.y
-       return self    
+       return self
     def __isub__(self,other):
         self.x-=other.x
         self.y-=other.y
-        return self    
+        return self
     @property
     def x(self):
         """
-        the 1st coordinate        
+        the 1st coordinate
         :type: float
         """
         return self._v[0]
@@ -76,7 +76,7 @@ class Vector2D(object):
     @property
     def y(self):
         """
-        the 2nd coordinate        
+        the 2nd coordinate
         :type: float
         """
         return self._v[1]
@@ -85,8 +85,8 @@ class Vector2D(object):
         self._v[1]=float(value)
     @property
     def v(self):
-        """ 
-        the associated numpy vector        
+        """
+        the associated numpy vector
         :type: numpy.array
         """
         return np.array(self._v)
@@ -116,10 +116,10 @@ class Vector2D(object):
     def normalize(self):
         """
         Normalize the vector
-        """ 
+        """
         n=self.norm
         if n!=0:
-            self._v=self._v/n    
+            self._v=self._v/n
     def product(self,a):
         """
         Multiply the vector by float a
@@ -133,7 +133,7 @@ class Vector2D(object):
 
     @staticmethod
     def create_polar(angle,norm):
-        """ 
+        """
         Create a vector from an angle and a norm
         :param float angle: angle parameter
         :param float norm: norm parameter
@@ -143,13 +143,13 @@ class Vector2D(object):
         return Vector2D(np.cos(angle)*norm,np.sin(angle)*norm)
     @staticmethod
     def create_random(low=0,high=1.):
-        """ 
+        """
         Create a random vector
         :param float low: low limit
         :param float high: high limit
         :return: vector
         :rtype: Vector2D
-        """        
+        """
         res=Vector2D()
         res.random(low,high)
         return res
@@ -177,7 +177,7 @@ class Score(object):
     @property
     def num_draw(self):
         return self._draw
-    
+
     def victoires(self,idteam):
         if idteam==1:
             return self.victoires_team1
@@ -186,7 +186,7 @@ class Score(object):
         if idteam==0:
             return self.num_draw
         raise IncorrectTeamException("score : idteam !=1 ou 2")
-   
+
     def score(self,idteam):
         if idteam==1:
             return self.score_team1
@@ -205,7 +205,7 @@ class Score(object):
             self._victoires_team2+=1
     def __str__(self):
         return "Team 1: %d, Team2 : %d, Draws: %d" %(self.victoires_team1,self.victoires_team2,self.num_draw)
-    
+
 class SoccerException(Exception):
     def __init__(self,msg):
         self.msg=msg
@@ -214,10 +214,10 @@ class SoccerException(Exception):
 class IncorrectTeamException(SoccerException):
     pass
 class PlayerException(SoccerException):
-    pass    
+    pass
 class StrategyException(SoccerException):
-    pass   
+    pass
 class SoccerBattleException(SoccerException):
-    pass        
+    pass
 class SoccerStateException(SoccerException):
     pass

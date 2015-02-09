@@ -4,14 +4,14 @@
 ## Simple implémentation de l'observer pattern
 ##############################################################################
 import pyglet
-from pyglet import gl  
+from pyglet import gl
 import numpy as np
 from soccer_base import *
 import threading
 import time
 
 #soccer_base  cste
-            
+
 
 ##############################################################################
 ## interfaces
@@ -29,12 +29,12 @@ class AbstractSoccerObserver(object):
     def end_battles(self):
         raise NotImplementedError,'end_battles'
     def is_ready(self):
-        return True        
-    
+        return True
+
     def set_soccer_battle(self,soccer_battle):
         self._soccer_battle=soccer_battle
         self._soccer_battle.listeners+=self
-    
+
 class ConsoleListener(AbstractSoccerObserver):
     def __init__(self):
         pass
@@ -43,8 +43,8 @@ class ConsoleListener(AbstractSoccerObserver):
     def start_battle(self,state):
         print "Debut match"
     def update_battle(self,state,step):
-        
-        if step % 100==0: 
+
+        if step % 100==0:
             print "Update %d step " %step
             print str(state)
     def finish_battle(self,state,winner):
@@ -52,7 +52,7 @@ class ConsoleListener(AbstractSoccerObserver):
     def end_battles(self):
         print "Fin combats"
 
-         
+
 class LogListener(AbstractSoccerObserver):
 
     def __init__(self,filename=None,autosave=True):
@@ -74,11 +74,11 @@ class LogListener(AbstractSoccerObserver):
     def save(self):
         if self.filename:
             pickle.dump(self,file(self.filename,"wb"),3)
-     
+
 
 class ObjectSprite:
         def __init__(self,name="",movable=True,items=None):
-            self.primitives=[] 
+            self.primitives=[]
             self.name=name
             self.has_vector=False
             self.movable=movable
@@ -123,8 +123,8 @@ class ObjectSprite:
           except Exception,e:
               #print "***********\n------- %s -------\n**********" % self.name
               #print "***********\n------- %s \n %s \n %s -------\n**********" % (str(p.verts),str(p.color),str(p.primtype))
-              time.sleep(1)              
-              #raise e 
+              time.sleep(1)
+              #raise e
 
 TEAM1_COLOR=[0.9,0.1,0.1]
 TEAM2_COLOR=[0.1,0.1,0.9]
@@ -151,7 +151,7 @@ class Primitive2DGL(object):
             primtype=gl.GL_LINES
             verts=[(0,0),(length,0),(length,0),(length*0.9,0.1*length),(length,0),(length*0.9,-0.1*length)]
             return [Primitive2DGL(verts,color,primtype)]
-            
+
         @staticmethod
         def create_player(color):
             rad=PLAYER_RADIUS
@@ -201,17 +201,17 @@ class VectorSprite(ObjectSprite):
         @ObjectSprite.angle.getter
         def angle(self):
             return self._angle
-            
+
 class PlayerSprite(ObjectSprite):
         def __init__(self,name,team,obs):
             ObjectSprite.__init__(self,name)
             self.team=team
-            self._obs=obs            
+            self._obs=obs
             color=TEAM1_COLOR
             #self._label=pyglet.text.Label(self.name,font_name='Times New Roman',font_size=20)
             if team!=1:
                 color=TEAM2_COLOR
-            self.add_primitives(Primitive2DGL.create_player(color))            
+            self.add_primitives(Primitive2DGL.create_player(color))
         def _get_object(self):
             return self._obs._state.get_team(self.team)[self.name]
         def draw(self):
@@ -223,8 +223,8 @@ class PlayerSprite(ObjectSprite):
             #self._label.x=self._get_object().position.x
             #self._label.y=self._get_object().position.y
             #self._label.draw()
-            
-class BallSprite(ObjectSprite):    
+
+class BallSprite(ObjectSprite):
         def __init__(self,obs):
             ObjectSprite.__init__(self,"ball")
             self._obs=obs
@@ -244,24 +244,24 @@ class BackgroundSprite(ObjectSprite):
 
 def get_color_scale(x):
         return [x,0.,1.-x]
-            
-            
+
+
 class PygletObserver(pyglet.window.Window,AbstractSoccerObserver):
- 
+
     key_handlers = {
         pyglet.window.key.ESCAPE: lambda w: w.exit(),
         pyglet.window.key._1: lambda w: w.start_config(),
         #pyglet.window.key._2: lambda w: w.start_multiple(),
         pyglet.window.key.N: lambda w: w.set_ready(),
         pyglet.window.key.M: lambda w: w.switch_manual_step(),
-        
+
     }
 
     def __init__(self,width=1200,height=800):
         pyglet.window.Window.__init__(self,width=width,height=height,resizable=True)
         self._state=None
         self.focus()
-        self._thread=None     
+        self._thread=None
         self.set_size(width,height)
         self._is_ready=True
         self._manual_step=True
@@ -276,7 +276,7 @@ class PygletObserver(pyglet.window.Window,AbstractSoccerObserver):
         for p in self._soccer_battle.team2.players:
             self._sprites[(p.name,2)]=PlayerSprite(p.name,2,self)
         self._background=BackgroundSprite(self)
-            
+
     def render(self,dt=0):
         if hasattr(self,"_state") and self._state:
             gl.glClear(gl.GL_COLOR_BUFFER_BIT)
@@ -284,29 +284,29 @@ class PygletObserver(pyglet.window.Window,AbstractSoccerObserver):
             for d in self._sprites.values():
                 d.draw()
     def on_draw(self):
-        if self._thread:        
-            self.render()   
-        
+        if self._thread:
+            self.render()
+
     def start_config(self,num_games=1,num_steps=MAX_GAME_STEPS):
         self.start(self._soccer_battle.start_by_thread,(3,MAX_GAME_STEPS,self))
     def on_key_press(self,symbol, modifiers):
        handler = self.key_handlers.get(symbol, lambda w: None)
-       handler(self)              
+       handler(self)
     def start(self,target,args):
         if not self._thread:
-            self._thread=threading.Thread(target=target,args=args)            
+            self._thread=threading.Thread(target=target,args=args)
             self._thread.daemon=False
             self._thread.start()
-            
+
     def begin_battles(self,count):
         self._count=count
         self.create_drawable_objects()
     def start_battle(self,state):
         self.update_battle(state,0)
-        self.render()   
+        self.render()
     def update_battle(self,state,step):
         self._state=state
-        self._step=step            
+        self._step=step
         self._is_ready=False
         if not self._manual_step:
             pyglet.clock.schedule_once(self.set_ready,1./self._fps)
@@ -319,7 +319,7 @@ class PygletObserver(pyglet.window.Window,AbstractSoccerObserver):
         self._thread=None
     def on_resize(self,width, height):
         pyglet.window.Window.on_resize(self,width,height)
-        self.focus()        
+        self.focus()
         return pyglet.event.EVENT_HANDLED
     def focus(self):
         gl.glMatrixMode(gl.GL_PROJECTION)
@@ -336,15 +336,15 @@ class PygletObserver(pyglet.window.Window,AbstractSoccerObserver):
     def on_close(self):
         res=pyglet.window.Window.on_close(self)
         self.exit()
-        return res        
+        return res
     def exit(self):
         self.set_ready()
         self.stop_thread=True
         if self._thread:
-            time.sleep(0.1)                        
+            time.sleep(0.1)
         self.close()
         pyglet.app.exit()
-        
-        
+
+
 def run():
     pyglet.app.run()

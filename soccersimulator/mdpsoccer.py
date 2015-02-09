@@ -13,15 +13,15 @@ class SoccerAction(object):
     def __init__(self,acceleration=Vector2D(),shoot=Vector2D()):
         self.acceleration=acceleration
         self.shoot=shoot
-        
+
     def copy(self):
         return SoccerAction(self.acceleration,self.shoot)
 
-        
+
 ###############################################################################
 # SoccerState
 ###############################################################################
-   
+
 class SoccerState:
     def __init__(self,team1,team2,ball):
         self.team1=team1
@@ -31,8 +31,8 @@ class SoccerState:
         self._width=GAME_WIDTH
         self._height=GAME_HEIGHT
     def copy(self):
-        res=SoccerState(self.team1.copy(),self.team2.copy(),self.ball.copy())        
-        res._winning_team=self._winning_team        
+        res=SoccerState(self.team1.copy(),self.team2.copy(),self.ball.copy())
+        res._winning_team=self._winning_team
         return res
     @property
     def winning_team(self):
@@ -46,14 +46,14 @@ class SoccerState:
     @property
     def diagonal(self):
         return np.sqrt(self.width**2+self.height**2)
-    
+
     def get_team(self,teamid):
         if teamid==1:
             return self.team1
         if teamid==2:
             return self.team2
         raise SoccerStateException("get_team : team demandé != 1 ou 2 : %s" % i)
-        
+
     def get_player(self,num_team,player):
        return self.get_team(num_team).get_player(player)
 
@@ -63,13 +63,13 @@ class SoccerState:
         if (teamid==2):
             return Vector2D(self.width,self.height/2.)
         raise SoccerStateException("get_goal_center : team demandé != 1 ou 2 : %s" % i)
-            
+
     def is_y_inside_goal(self,y):
         return np.abs(y-(self.height/2))<GAME_GOAL_HEIGHT/2
 
-  
+
     """ implementation """
-    
+
     def apply_action(self,player,action):
         if not action:
             return
@@ -100,14 +100,14 @@ class SoccerState:
                 angle+=(np.random.rand()*2.-1)*shootRandomAngle/180.*np.pi
                 action_shoot=Vector2D.create_polar(angle,norm)
                 self.sum_of_shoots+=action_shoot
-                
+
         norm = action_acceleration.norm
         if norm>maxPlayerAcceleration:
             action_acceleration.product(1./norm*maxPlayerAcceleration)
         frotte=Vector2D.create_polar(player.angle,-player.speed)
         frotte.product(playerBrackConstant)
         resultante=frotte
-        resultante+=action_acceleration        
+        resultante+=action_acceleration
         new_speed=Vector2D.create_polar(player.angle,player.speed)
         new_speed+=resultante
         new_player_speed=new_speed.norm
@@ -115,10 +115,10 @@ class SoccerState:
             new_player_angle=np.arctan2(new_speed.y,new_speed.x)
             if new_player_speed>maxPlayerSpeed:
                 new_player_speed=maxPlayerSpeed
-                
+
             new_player_position=player.position.copy()
             new_player_position+=new_speed
-            
+
             if new_player_position.x<0:
                 new_player_position.x=0
                 new_player_speed=0
@@ -134,7 +134,7 @@ class SoccerState:
             player.angle=new_player_angle
             player.speed=new_player_speed
             player.position=new_player_position
-        
+
     def apply_actions(self,team1_actions,team2_actions):
         self.sum_of_shoots=Vector2D()
         for player,action in team1_actions.iteritems():
@@ -148,7 +148,7 @@ class SoccerState:
         frotte_ball_constant=self.ball.speed.copy()
         coeff_frottement_constant=ballBrakeConstant
         frotte_ball_constant.product(-coeff_frottement_constant)
-        
+
         new_ball_speed=self.ball.speed
         no=self.sum_of_shoots.norm
         if no!=0:
@@ -157,12 +157,12 @@ class SoccerState:
             new_ball_speed=self.sum_of_shoots.copy()
         new_ball_speed+=frotte_ball_square
         new_ball_speed+=frotte_ball_constant
-        
+
         self.ball.speed=new_ball_speed
         new_ball_position=self.ball.position
         new_ball_position+=new_ball_speed
         self.ball.position=new_ball_position
-        
+
         pos=self.ball.position
         speed=self.ball.speed
         if pos.x<0:
@@ -189,7 +189,7 @@ class SoccerState:
 ###############################################################################
 # SoccerBattle
 ###############################################################################
-   
+
 class SoccerBattle(object):
     def __init__(self,team1,team2):
         if team1.num_players != team2.num_players:
@@ -198,6 +198,9 @@ class SoccerBattle(object):
         self.team2=team2
         self.score=Score()
         self.listeners=SoccerEvents()
+
+    def __str__(self):
+        return "%s vs %s : %s" %(str(self.team1), str(self.team2), str(self.score))
     @property
     def num_players(self):
         return self.team1.num_players
@@ -207,14 +210,14 @@ class SoccerBattle(object):
     def run_multiple_battles(self,battles_count=1,max_steps=MAX_GAME_STEPS):
         if not max_steps:
             max_steps=MAX_GAME_STEPS
-        self.listeners.begin_battles(battles_count)                  
-        for i in range(battles_count):            
+        self.listeners.begin_battles(battles_count)
+        for i in range(battles_count):
             self.run(max_steps)
         self.listeners.end_battles()
-        self._father=None                
+        self._father=None
     def start_battle(self,state):
         self.team1.start_battle(state)
-        self.team2.start_battle(state) 
+        self.team2.start_battle(state)
         self.listeners.start_battle(state)
     def finish_battle(self,state):
         if state.winning_team==0:
@@ -227,7 +230,7 @@ class SoccerBattle(object):
             self.team1.finish_battle(-1)
             self.team2.finish_battle(1)
         self.listeners.finish_battle(state.winning_team)
-            
+
     def run(self,max_steps):
             state=self.create_initial_state()
             result=-1
@@ -235,13 +238,13 @@ class SoccerBattle(object):
             for i in range(max_steps):
                 st=state.copy()
                 state.apply_actions(st.team1.compute_strategies(st,1),st.team2.compute_strategies(st,2))
-                self.listeners.update_battle(state,i)                
+                self.listeners.update_battle(state,i)
                 while  sum(self.listeners.is_ready())!=len(self.listeners):
                     time.sleep(0.0001)
                 if state.winning_team>0:
                     break
-                if self._father and self._father.stop_thread:
-                    break                    
+                if hasattr(self,"_father") and self._father.stop_thread:
+                    break
             self.score.add_result(state.winning_team)
             return state.winning_team
 
@@ -271,7 +274,7 @@ class SoccerBattle(object):
         state.ball.position.x=state.width/2
         state.ball.position.y=state.height/2
         return state
-         
+
 
 
 class Events(object):
@@ -286,8 +289,8 @@ class Events(object):
       return ev
    def __str__(self): return 'Events :' + str(list(self))
    __repr__ = __str__
-   def __len__(self): 
-       if len(self.__dict__)!=0: 
+   def __len__(self):
+       if len(self.__dict__)!=0:
            return len(self.__dict__.values()[0])
        return 0
    def __iter__(self):
@@ -327,5 +330,3 @@ class SoccerEvents(Events):
         for e in self:
             while getattr(f,e) in e.targets: e.targets.remove(getattr(f,e))
         return self
-            
-            

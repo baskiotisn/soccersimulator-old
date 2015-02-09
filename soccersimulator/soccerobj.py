@@ -25,7 +25,7 @@ class SoccerBall(object):
 ###############################################################################
 
 
-class SoccerPlayer(object):        
+class SoccerPlayer(object):
     def __init__(self,name,strat=None):
         self._name=name
         self.position=Vector2D()
@@ -36,25 +36,25 @@ class SoccerPlayer(object):
         if strat:
             if not isinstance(strat,strategies.SoccerStrategy):
                 raise PlayerException("La stratégie n'herite pas de la classe SoccerStrategy")
-            self._strategy=strat.copy()        
-    @property      
+            self._strategy=strat.copy()
+    @property
     def name(self):
         return self._name
     def set_position(self,x,y,angle):
         self.position=Vector2D(x,y)
         self.angle=float(angle)
     def dec_num_before_shoot(self):
-        if self._num_before_shoot>0:        
+        if self._num_before_shoot>0:
             self._num_before_shoot-=1
     def init_num_before_shoot(self):
         self._num_before_shoot=nbWithoutShoot
     def get_num_before_shoot(self):
         return self._num_before_shoot
     def __str__(self):
-        return "%s : (%s, %f, %f)" % (self._name,self.position,self.speed,self.angle)
+        return self._name
     @property
     def normed_position(self):
-        return Vector2D(self.position.x/SoccerState.GAME_WIDTH, self_position.y/SoccerState.GAME_HEIGHT)
+        return Vector2D(self.position.x/SoccerState.GAME_WIDTH, self.position.y/SoccerState.GAME_HEIGHT)
     def copy(self):
         res=SoccerPlayer(self._name,self._strategy)
         res.position=self.position.copy()
@@ -74,23 +74,30 @@ class SoccerPlayer(object):
         if self._strategy:
             return self.strategy.compute_strategy(state,self,teamid)
         raise PlayerException('Pas de strategie définie pour le joueur %s' %self.get_name())
-        
+
 ###############################################################################
 # SoccerTeam
 ###############################################################################
-        
+
 class SoccerTeam:
     def __init__(self,name,soccer_club=None):
         self._name=name
         self._exceptions=[]
         self._players=dict()
-        
+        self._club=None
+
     def copy(self):
-        team=SoccerTeam(self._name)
+        team=SoccerTeam(self._name,self._club)
         team._exceptions=list(team._exceptions)
         for name,p in self._players.items():
             team.add_player(p.copy())
         return team
+    @property
+    def club(self):
+        return self._club
+    @club.setter
+    def club(self,club):
+        self._club = club
     def add_name(self,name):
         self._name+="."+name
     def add_player(self,player):
@@ -113,7 +120,7 @@ class SoccerTeam:
         if name not in self._players.keys():
             return None
         return self._players[player]
-    @property        
+    @property
     def players(self):
         return self._players.values()
     @property
@@ -138,5 +145,4 @@ class SoccerTeam:
             return self.players[index]
         return self._players[index]
     def __str__(self):
-        return " Team "+self.name+": " +" | ".join(map(str,self.players)) 
-
+        return self.name+" ("+ str(self.club)+"): " +" | ".join(map(str,self.players))
