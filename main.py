@@ -50,4 +50,4 @@ def load_tournament_git_list(name,git_list,git_import=True,max_teams=5):
 if __name__=="__main__":
     tournament = load_tournament_git_list("Test",GIT_LIST_2015,max_teams=2)
     tournament.init_battles()
-    tournament.do_battles(10,2000)
+    tournament.do_battles(10,5000)

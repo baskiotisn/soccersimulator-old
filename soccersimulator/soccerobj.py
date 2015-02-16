@@ -244,7 +244,6 @@ class SoccerTournament:
         self.name=name
         self.list_games=list_games
         self.battles=dict()
-        self.teams_score=dict()
         self.same_club=same_club
         self.max_teams=max_teams
 
@@ -277,16 +276,10 @@ class SoccerTournament:
         if team:
             res=[x for x in res if x.team1.name == team or x.team2.name == team]
         return res
-
     def init_battles(self):
         self.battles=dict()
         for nbp in self.list_games:
             self.battles[nbp]=list()
-            self.teams_score[nbp]=dict()
-            for c in self.clubs:
-                if nbp in c.teams:
-                    for t in c.teams[nbp]:
-                        self.teams_score[nbp][(c.login,c.name,t.name)]=Score(t)
 
         for club1 in range(len(self.clubs)):
             for club2 in range(club1+1 if not self.same_club else club1,len(self.clubs)):
@@ -299,13 +292,20 @@ class SoccerTournament:
                                 self.battles[nbp].append(b_aller)
                                 self.battles[nbp].append(b_retour)
     def do_battles(self,nbgoals=10,max_time=5000):
+        self.scores=dict()
         for nbp in self.list_games:
             print "Tournoi %d joueurs" % (nbp,)
             for i,b in enumerate(self.battles[nbp]):
                 b.run_multiple_battles(nbgoals,max_time)
                 print "Game ended %d/%d: %s" % (i,len(self.battles[nbp])-1,b)
-                self.teams_score[nbp][(b.team1.club.login,b.team1.club.name,b.team1.name)].add_score(b.score_team1,b.score_team2)
-                self.teams_score[nbp][(b.team2.club.login,b.team2.club.name,b.team2.name)].add_score(b.score_team2,b.score_team1)
+            self.scores[nbp]=self.build_scores(self.battles[nbp])
+
+    def do_some_battles(self,nbp=None,login=None,club=None,team=None,nbgoals=10,max_time=5000):
+        res = self.get_battles(nbp,login,club,team)
+        for i,b in enumerate(res):
+            b.run_multiple_battles(nbgoals,max_time)
+            print "Game ended %d/%d : %s" % (i,len(res)-1,b)
+        return res
 
     def build_scores(battles_list):
         res=dict()
