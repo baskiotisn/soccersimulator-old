@@ -48,6 +48,9 @@ def load_tournament_git_list(name,git_list,git_import=True,max_teams=5):
 
 
 if __name__=="__main__":
-    tournament = load_tournament_git_list("Test",GIT_LIST_2015,max_teams=2)
+    tournament = load_tournament_git_list("Test",GIT_LIST_2015,max_teams=2,git_import=False)
     tournament.init_battles()
-    tournament.do_battles(10,5000)
+    res=tournament.do_some_battles(nbp=2,login="mariene")
+    scores = SoccerTournament.build_scores(res)
+    print [(str(s.team),str(s)) for s in sorted(scores.values())]
+    #tournament.do_battles(10,5000)

@@ -247,7 +247,7 @@ class SoccerBattle(object):
         for i,p in enumerate(st.team2.players):
             self.team2[i].strategy=p.strategy
 
-    def end_battles(self):
+    def end_battles(self):score
         self.team1.end_battles()
         self.team2.end_battles()
         self.listeners.end_battles()
