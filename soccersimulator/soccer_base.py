@@ -154,55 +154,6 @@ class Vector2D(object):
         return res
 
 
-class Score(object):
-    def __init__(self,v_team1=0,v_team2=0,num_draw=0):
-        self._victoires_team1=v_team1
-        self._victoires_team2=v_team2
-        self._draw=num_draw
-    @property
-    def score_team1(self):
-        return self._victoires_team1*3+self._draw
-    @property
-    def score_team2(self):
-        return self._victoires_team2*3+self._draw
-    @property
-    def victoires_team1(self):
-        return self._victoires_team1
-    @property
-    def victoires_team2(self):
-        return self._victoires_team2
-    @property
-    def num_draw(self):
-        return self._draw
-
-    def victoires(self,idteam):
-        if idteam==1:
-            return self.victoires_team1
-        if idteam==2:
-            return self.victoires_team2
-        if idteam==0:
-            return self.num_draw
-        raise IncorrectTeamException("score : idteam !=1 ou 2")
-
-    def score(self,idteam):
-        if idteam==1:
-            return self.score_team1
-        if idteam==2:
-            return self.score_team2
-        raise IncorrectTeamException("score : idteam !=1 ou 2")
-    @property
-    def num_battles(self):
-        return self._victoires_team1+self._victoires_team2+self._draw
-    def add_result(self,win_team):
-        if win_team==0:
-            self._draw+=1
-        if win_team==1:
-            self._victoires_team1+=1
-        if win_team==2:
-            self._victoires_team2+=1
-    def __str__(self):
-        return "Team 1: %d, Team2 : %d, Draws: %d" %(self.victoires_team1,self.victoires_team2,self.num_draw)
-
 class SoccerException(Exception):
     def __init__(self,msg):
         self.msg=msg

@@ -39,8 +39,8 @@ def load_from_github(login,project,git_import=True):
         club.name=mymod.name
     return club
 
-def load_tournament_git_list(name,git_list,git_import=True):
-    tournament = soccersimulator.SoccerTournament(name)
+def load_tournament_git_list(name,git_list,git_import=True,max_teams=5):
+    tournament = soccersimulator.SoccerTournament(name,max_teams=max_teams)
     for (login,project) in git_list:
         club  = load_from_github(login,project,git_import)
         tournament.add_club(club)
@@ -48,6 +48,6 @@ def load_tournament_git_list(name,git_list,git_import=True):
 
 
 if __name__=="__main__":
-    tournament = load_tournament_git_list("Test",GIT_LIST_2015)
+    tournament = load_tournament_git_list("Test",GIT_LIST_2015,max_teams=2)
     tournament.init_battles()
-    tournament.do_battles()
+    tournament.do_battles(10,2000)

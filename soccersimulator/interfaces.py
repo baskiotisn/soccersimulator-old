@@ -9,7 +9,9 @@ import numpy as np
 from soccer_base import *
 import threading
 import time
-
+import soccerobj
+import strategies
+import pickle
 #soccer_base  cste
 
 
@@ -18,11 +20,11 @@ import time
 ##############################################################################
 
 class AbstractSoccerObserver(object):
-    def begin_battles(self,count):
+    def begin_battles(self,state,count,max_step):
         raise NotImplementedError,'begin_battles'
     def start_battle(self,state):
         raise NotImplementedError,'start_battle'
-    def update_battle(self,state,step):
+    def update_battle(self,action_team1,action_team2,state,step):
         raise NotImplementedError,'update_battle'
     def finish_battle(self,state,winner):
         raise NotImplementedError, 'finish_battle'
@@ -38,11 +40,11 @@ class AbstractSoccerObserver(object):
 class ConsoleListener(AbstractSoccerObserver):
     def __init__(self):
         pass
-    def begin_battles(self,count):
+    def begin_battles(self,state,count,max_step):
         print "Debut combats : %d" % count
     def start_battle(self,state):
         print "Debut match"
-    def update_battle(self,state,step):
+    def update_battle(self,action_team1,action_team2,state,step):
 
         if step % 100==0:
             print "Update %d step " %step
@@ -59,22 +61,57 @@ class LogListener(AbstractSoccerObserver):
         self._battles_list=[]
         self.autosave=autosave
         self.filename=filename
-    def begin_battles(self,count):
-        self._states=[]
+    def begin_battles(self,state,count,max_step):
+        self.team1_players_name=[ (p.name,p.strategy.name) for p in state.team1]
+        self.team2_players_name=[ (p.name,p.strategy.name) for p in state.team2]
+        self.team1_name = state.team1.name
+        self.team2_name = state.team2.name
+        self.count=count
+        self.max_step=max_step
+        self._battles_list=[]
     def start_battle(self,state):
-        self._states=[state]
-    def update_battle(self,state,step):
-        self._states.append(state)
+        self._states=[]
+        self._actions_team1=dict()
+        self._actions_team2=dict()
+        #self._states=[state]
+        for i in range(len(self.team1_players_name)):
+            self._actions_team1[i]=[]
+        for i in range(len(self.team2_players_name)):
+            self._actions_team2[i]=[]
+    def update_battle(self,action_team1,action_team2,state,step):
+        for i,act in enumerate(action_team1):
+            self._actions_team1[i].append(action_team1)
+        for i,act in enumerate(action_team2):
+            self._actions_team2[i].append(action_team2)
+        #self._states.append(state)
     def finish_battle(self,state,winner):
-        self._battles_list.append(self._states)
-        if self.autosave:
-            self.save()
+        print len(self.battles_list)
+        self._battles_list.append((self._actions_team1,self._actions_team2,self._states))
     def end_battles(self):
-        pass
-    def save(self):
+        if self.autosave:
+            self.save_me()
+    def save_me(self):
         if self.filename:
-            pickle.dump(self,file(self.filename,"wb"),3)
-
+            b=self._soccer_battle
+            self._soccer_battle=None
+            with file(self.filename,"wb") as f:
+                pickle.dump(self,f,2)
+            self._soccer_battle=b
+    @staticmethod
+    def load_replay(fn):
+        with file(fn,"rb") as f:
+            replay= pickle.load(f)
+        team1=soccerobj.SoccerTeam(replay.team1_name)
+        team2=soccerobj.SoccerTeam(replay.team2_name)
+        #states=[ s[2] for s in replay._battles_list]
+        states=[]
+        for i,p in enumerate(replay.team1_players_name):
+            actions = [ s[0][i] for s in replay._battles_list]
+            team1.add_player(soccerobj.SoccerPlayer(p,strategies.ReplayStrategy(actions,states)))
+        for i,p in enumerate(replay.team2_players_name):
+            actions = [ s[1][i] for s in replay._battles_list]
+            team2.add_player(soccerobj.SoccerPlayer(p,strategies.ReplayStrategy(actions,states)))
+        return team1,team2
 
 class ObjectSprite:
         def __init__(self,name="",movable=True,items=None):
@@ -298,13 +335,13 @@ class PygletObserver(pyglet.window.Window,AbstractSoccerObserver):
             self._thread.daemon=False
             self._thread.start()
 
-    def begin_battles(self,count):
+    def begin_battles(self,state,count,max_step):
         self._count=count
         self.create_drawable_objects()
     def start_battle(self,state):
-        self.update_battle(state,0)
+        self.update_battle(dict(),dict(),state,0)
         self.render()
-    def update_battle(self,state,step):
+    def update_battle(self,action_team1,action_team2,state,step):
         self._state=state
         self._step=step
         self._is_ready=False
