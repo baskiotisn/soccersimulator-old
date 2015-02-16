@@ -153,7 +153,7 @@ class Vector2D(object):
         res.random(low,high)
         return res
 
-score
+
 class SoccerException(Exception):
     def __init__(self,msg):
         self.msg=msg
