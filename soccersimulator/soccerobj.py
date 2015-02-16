@@ -249,7 +249,7 @@ class SoccerTournament:
 
     def add_club(self,club):
         myclub = deepcopy(club)
-        for nbp in self.list_games:scorescore
+        for nbp in self.list_games:
             if nbp not in myclub.teams:
                 myclub.add_exception("Not team for %d players" % nbp)
                 continue
