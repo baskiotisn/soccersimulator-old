@@ -324,8 +324,8 @@ class PygletObserver(pyglet.window.Window,AbstractSoccerObserver):
         if self._thread:
             self.render()
 
-    def start_config(self,num_games=1,num_steps=MAX_GAME_STEPS):
-        self.start(self._soccer_battle.start_by_thread,(3,MAX_GAME_STEPS,self))
+    def start_config(self,num_games=None,num_steps=None):
+        self.start(self._soccer_battle.start_by_thread,(self,num_games,num_steps))
     def on_key_press(self,symbol, modifiers):
        handler = self.key_handlers.get(symbol, lambda w: None)
        handler(self)
@@ -358,7 +358,7 @@ class PygletObserver(pyglet.window.Window,AbstractSoccerObserver):
         pyglet.window.Window.on_resize(self,width,height)
         self.focus()
         return pyglet.event.EVENT_HANDLED
-    def focus(self):
+    def focus(self):u
         gl.glMatrixMode(gl.GL_PROJECTION)
         gl.glLoadIdentity()
         gl.gluOrtho2D(0, GAME_WIDTH, 0, GAME_HEIGHT)

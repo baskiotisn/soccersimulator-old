@@ -16,7 +16,6 @@ class SoccerAction(object):
         self.shoot=shoot
     def __str__(self):
         return "%s %s" % (self.acceleration,self.shoot)
-
     def __eq__(self,other):
         return (other.acceleration==self.acceleration) and (other.shoot==self.shoot)
     def __add__(self,other):
@@ -206,7 +205,7 @@ class SoccerState:
 ###############################################################################
 
 class SoccerBattle(object):
-    def __init__(self,team1,team2):
+    def __init__(self,team1,team2,battles_count=1,max_steps=MAX_GAME_STEPS):
         if team1.num_players != team2.num_players:
             raise BattleException("Les equipes n'ont pas le meme nombre de joeurs")
         self.team1=team1
@@ -215,7 +214,8 @@ class SoccerBattle(object):
         self.score_team2=0
         self.score_draw=0
         self.listeners=SoccerEvents()
-
+        self.battles_count=battles_count
+        elf.max_steps=max_steps
     def __str__(self):
         return "%s vs %s : %s-%s (%s)" %(str(self.team1), str(self.team2), str(self.score_team1),str(self.score_team2),str(self.score_draw))
     def init_score(self):
@@ -225,13 +225,17 @@ class SoccerBattle(object):
     @property
     def num_players(self):
         return self.team1.num_players
-    def start_by_thread(self,battles_count,max_steps,father):
+    def start_by_thread(self,father,battles_count=None,max_steps=None):
         self._father=father
         self.run_multiple_battles(battles_count,max_steps)
-    def run_multiple_battles(self,battles_count=1,max_steps=MAX_GAME_STEPS):
-        self.begin_battles(self.create_initial_state(),battles_count,max_steps)
-        for i in range(battles_count):
-            self.run(max_steps)
+    def run_multiple_battles(self,battles_count=None,max_steps=None):
+        if battles_count:
+            self.battles_count=battles_count
+        if max_steps:
+            self.max_steps=max_steps
+        self.begin_battles(self.create_initial_state(),self.battles_count,self.max_steps)
+        for i in range(self.battles_count):
+            self.run(self.max_steps)
         self.end_battles()
         self._father=None
 
