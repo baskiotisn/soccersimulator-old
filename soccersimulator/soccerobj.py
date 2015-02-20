@@ -106,6 +106,7 @@ class SoccerTeam:
         if player.name in [p.name for p in self.players]:
             raise IncorrectTeamException('Nom de joueur dupliqué : '%player.name)
         self._players.append(player)
+        player.id=len(self._players)
     @property
     def name(self):
         return self._name
