@@ -263,20 +263,39 @@ class SoccerTournament:
                 myclub.teams[nbp]=myclub.teams[nbp][:self.max_teams]
         self.clubs.append(myclub)
 
-    def get_battles(self,nbp=None,login=None,club=None,team=None):
+    def get_battles(self,nbp=None,login=None,club=None,team=None,only=False):
         res =[]
         if nbp:
-            res = list(self.battles[nbp])
+            if type(nbp) !=list:
+                nbp=[nbp]
+            for i in nbp:
+                res+=self.battles[i]
         else:
             for p in self.battles.values():
                 res+=p
         if club:
-            res=[x for x in res if x.team1.club.name==club or x.team2.club.name==club]
+            if type(club) != list:
+                club = [club]
+            if only:
+                res=[x for x in res if x.team1.club.name in club and x.team2.club.name in club]
+            else:
+                res=[x for x in res if x.team1.club.name in club or x.team2.club.name in club]
         if login:
-            res=[x for x in res if x.team1.club.login == login or x.team2.club.login==login]
+            if type(login) != list:
+                login=[login]
+            if only:
+                res=[x for x in res if x.team1.club.login in login and x.team2.club.login in login]
+            else:
+                res=[x for x in res if x.team1.club.login in login or x.team2.club.login in login]
         if team:
-            res=[x for x in res if x.team1.name == team or x.team2.name == team]
+            if type(team) != list:
+                team=[team]
+            if only:
+                res=[x for x in res if x.team1.name in team and x.team2.name in team]
+            else:
+                res=[x for x in res if x.team1.name in team or x.team2.name in team]
         return res
+
     def init_battles(self):
         self.battles=dict()
         for nbp in self.list_games:
@@ -300,8 +319,8 @@ class SoccerTournament:
                 b.run_multiple_battles(nbgoals,max_time)
                 print "Game ended %d/%d: %s" % (i,len(self.battles[nbp])-1,b)
             self.scores[nbp]=self.build_scores(self.battles[nbp])
-
-    def do_some_battles(self,nbp=None,login=None,club=None,team=None,nbgoals=10,max_time=5000):
+        return self.battles
+    def do_some_battles(self,only=None,nbp=None,login=None,club=None,team=None,nbgoals=10,max_time=5000):
         res = self.get_battles(nbp,login,club,team)
         for i,b in enumerate(res):
             b.run_multiple_battles(nbgoals,max_time)
