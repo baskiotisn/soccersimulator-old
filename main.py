@@ -8,10 +8,11 @@ import pickle
 
 TARGET_PATH="/tmp/tournoi"
 
-GIT_LIST_2015=[("Benlog","Soccer-AI"),("SebXIII","Projet"),("andrenasturas","2I013"),("AlexandreCasanova","projet"),\
-            ("mariene","projet_foot"),("Leynad","ProjetFoot"),("ArezkiSky","Projet-soccer-2I013"),("Maumiz","ProjetSoccer"),\
-            ("kabylemak","soccerproject"),("timotheb","projet"),("orangemango","orange-soccer-team")]
+#GIT_LIST_2015=[("Benlog","Soccer-AI"),("SebXIII","Projet"),("andrenasturas","2I013"),("AlexandreCasanova","projet"),\
+#            ("mariene","projet_foot"),("Leynad","ProjetFoot"),("ArezkiSky","Projet-soccer-2I013"),("Maumiz","ProjetSoccer"),\
+#            ("kabylemak","soccerproject"),("timotheb","projet"),("orangemango","orange-soccer-team")]
 
+GIT_LIST_2015=[("Benlog","Soccer-AI"),("SebXIII","Projet")]
 
 def load_from_github(login,project,git_import=True):
     # clone le depot github correspondant
@@ -52,7 +53,7 @@ def load_tournament_git_list(name,git_list,git_import=True,max_teams=5):
 if __name__=="__main__":
     parse = argparse.ArgumentParser(description="Soccersimulator Main")
     parse.add_argument('-git',action='store_true',default=False,help="Import github")
-    parse.add_argument('-nb',action="store",dest='max_teams',default=2,help="Maximum number of teams per club")
+    parse.add_argument('-nb',action="store",dest='max_teams',type=int,default=2,help="Maximum number of teams per club")
     parse.add_argument('-b', action="store_true",dest='battles',default=False,help="Do tournament")
     parse.add_argument('-g', action="store",dest='nbgoals',default=10,help="Number of goals")
     parse.add_argument('-time', action="store",dest='max_time',default=5000,help="Max time for a goal")
@@ -75,7 +76,7 @@ if __name__=="__main__":
             for nbp,btl in res.items():
                 print '%d tournament:' % (nbp,)
                 scores=soccersimulator.SoccerTournament.build_scores(btl)
-                print [(str(s.team),str(s)) for s in sorted(scores.vallues())]
+                print [(str(s.team),str(s)) for s in sorted(scores.values())]
         if args.o:
             with open(args.o,"wb") as f:
-                pickle.dump(res,f)
+                pickle.dump(scores,f)
