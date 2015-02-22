@@ -4,6 +4,7 @@ import imp
 import soccersimulator
 import shutil
 import argparse
+import pickle
 
 TARGET_PATH="/tmp/tournoi"
 
