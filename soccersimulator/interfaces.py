@@ -361,16 +361,8 @@ class PygletObserver(pyglet.window.Window,AbstractSoccerObserver):
         pyglet.window.Window.on_resize(self,width,height)
         self.focus()
         return pyglet.event.EVENT_HANDLED
-<<<<<<< HEAD
-    def focus(self):u
-        gl.glMatrixMode(gl.GL_PROJECTION)
-        gl.glLoadIdentity()
-        gl.gluOrtho2D(0, GAME_WIDTH, 0, GAME_HEIGHT)
-        gl.glMatrixMode(gl.GL_MODELVIEW)
-        gl.glLoadIdentity()
-=======
     def focus(self):
-        try:        
+        try:
             gl.glMatrixMode(gl.GL_PROJECTION)
             gl.glLoadIdentity()
             gl.gluOrtho2D(0, GAME_WIDTH, 0, GAME_HEIGHT)
@@ -378,7 +370,6 @@ class PygletObserver(pyglet.window.Window,AbstractSoccerObserver):
             gl.glLoadIdentity()
         except Exception:
             pass
->>>>>>> origin/master
     def is_ready(self):
         return self._is_ready
     def switch_manual_step(self):
