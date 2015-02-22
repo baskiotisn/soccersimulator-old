@@ -215,7 +215,7 @@ class SoccerBattle(object):
         self.score_draw=0
         self.listeners=SoccerEvents()
         self.battles_count=battles_count
-        elf.max_steps=max_steps
+        self.max_steps=max_steps
     def __str__(self):
         return "%s vs %s : %s-%s (%s)" %(str(self.team1), str(self.team2), str(self.score_team1),str(self.score_team2),str(self.score_draw))
     def init_score(self):

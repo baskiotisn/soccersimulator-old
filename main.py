@@ -3,6 +3,7 @@ import sys
 import imp
 import soccersimulator
 import shutil
+import argparse
 
 TARGET_PATH="/tmp/tournoi"
 
@@ -48,9 +49,32 @@ def load_tournament_git_list(name,git_list,git_import=True,max_teams=5):
 
 
 if __name__=="__main__":
-    tournament = load_tournament_git_list("Test",GIT_LIST_2015,max_teams=2,git_import=False)
-    tournament.init_battles()
-    res=tournament.do_some_battles(nbp=2,login="mariene")
-    scores = soccersimulator.SoccerTournament.build_scores(res)
-    print [(str(s.team),str(s)) for s in sorted(scores.values())]
-    #tournament.do_battles(10,5000)
+    parse = argparse.ArgumentParser(description="Soccersimulator Main")
+    parse.add_argument('-git',action='store_true',default=False,help="Import github")
+    parse.add_argument('-nb',action="store",dest='max_teams',default=2,help="Maximum number of teams per club")
+    parse.add_argument('-b', action="store_true",dest='battles',default=False,help="Do tournament")
+    parse.add_argument('-g', action="store",dest='nbgoals',default=10,help="Number of goals")
+    parse.add_argument('-time', action="store",dest='max_time',default=5000,help="Max time for a goal")
+    parse.add_argument('-nbp',nargs='+',type=int,help="List of type of tournament (number of player, 1,2 or 4)")
+    parse.add_argument('-login',nargs='+',default=None,help="List of logins to play")
+    parse.add_argument('-club',nargs='+',default=None,help="List of clubs to play")
+    parse.add_argument('-team',nargs='+',default=None,help='List of teams to play')
+    parse.add_argument('-only',action='store_true',default=False,help="If present, battles only between login|club|team passed as argument")
+    parse.add_argument('-o',action="store",default=None)
+    args=parse.parse_args()
+    tournament = load_tournament_git_list("Test",GIT_LIST_2015,max_teams=args.max_teams,git_import=args.git)
+    if args.battles:
+        tournament.init_battles()
+        if args.login or args.club or args.team:
+            res=tournament.do_some_battles(args.only,args.nbp,args.login,args.club,args.team,args.nbgoals,args.max_time)
+            scores = soccersimulator.SoccerTournament.build_scores(res)
+            print [(str(s.team),str(s)) for s in sorted(scores.values())]
+        else:
+            res=tournament.do_battles(args.nbgoals,args.max_time)
+            for nbp,btl in res.items():
+                print '%d tournament:' % (nbp,)
+                scores=soccersimulator.SoccerTournament.build_scores(btl)
+                print [(str(s.team),str(s)) for s in sorted(scores.vallues())]
+        if args.o:
+            with open(args.o,"wb") as f:
+                pickle.dump(res,f)
