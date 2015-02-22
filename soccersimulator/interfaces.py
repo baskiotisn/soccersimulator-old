@@ -315,11 +315,14 @@ class PygletObserver(pyglet.window.Window,AbstractSoccerObserver):
         self._background=BackgroundSprite(self)
 
     def render(self,dt=0):
-        if hasattr(self,"_state") and self._state:
-            gl.glClear(gl.GL_COLOR_BUFFER_BIT)
-            self._background.draw()
-            for d in self._sprites.values():
-                d.draw()
+        try:
+            if hasattr(self,"_state") and self._state:
+                gl.glClear(gl.GL_COLOR_BUFFER_BIT)
+                self._background.draw()
+                for d in self._sprites.values():
+                    d.draw()
+        except Exception:
+            pass
     def on_draw(self):
         if self._thread:
             self.render()
@@ -358,12 +361,24 @@ class PygletObserver(pyglet.window.Window,AbstractSoccerObserver):
         pyglet.window.Window.on_resize(self,width,height)
         self.focus()
         return pyglet.event.EVENT_HANDLED
+<<<<<<< HEAD
     def focus(self):u
         gl.glMatrixMode(gl.GL_PROJECTION)
         gl.glLoadIdentity()
         gl.gluOrtho2D(0, GAME_WIDTH, 0, GAME_HEIGHT)
         gl.glMatrixMode(gl.GL_MODELVIEW)
         gl.glLoadIdentity()
+=======
+    def focus(self):
+        try:        
+            gl.glMatrixMode(gl.GL_PROJECTION)
+            gl.glLoadIdentity()
+            gl.gluOrtho2D(0, GAME_WIDTH, 0, GAME_HEIGHT)
+            gl.glMatrixMode(gl.GL_MODELVIEW)
+            gl.glLoadIdentity()
+        except Exception:
+            pass
+>>>>>>> origin/master
     def is_ready(self):
         return self._is_ready
     def switch_manual_step(self):
