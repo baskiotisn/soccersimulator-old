@@ -61,7 +61,7 @@ if __name__=="__main__":
     parse.add_argument('-club',nargs='+',default=None,help="List of clubs to play")
     parse.add_argument('-team',nargs='+',default=None,help='List of teams to play')
     parse.add_argument('-only',action='store_true',default=False,help="If present, battles only between login|club|team passed as argument")
-    parse.add_argument('-o',action="store",default=None)
+    parse.add_argument('-o',action="store",default=None,help="Save the scores to file O ")
     args=parse.parse_args()
     tournament = load_tournament_git_list("Test",GIT_LIST_2015,max_teams=args.max_teams,git_import=args.git)
     if args.battles:
@@ -76,6 +76,7 @@ if __name__=="__main__":
                 print '%d tournament:' % (nbp,)
                 scores=soccersimulator.SoccerTournament.build_scores(btl)
                 print [(str(s.team),str(s)) for s in sorted(scores.values())]
+            scores=tournament.scores.copy()
         if args.o:
             with open(args.o,"wb") as f:
                 pickle.dump(scores,f)
