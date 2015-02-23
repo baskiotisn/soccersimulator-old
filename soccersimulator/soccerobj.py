@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 from soccer_base import *
-import strategies
 import mdpsoccer
-from operator import itemgetter
 from copy import deepcopy
 from functools import total_ordering
 
@@ -36,12 +34,11 @@ class SoccerPlayer(object):
         self.speed=0.
         self._num_before_shoot=0
         self._strategy=None
+        self.id =-1
         if strat:
-            if not isinstance(strat,strategies.SoccerStrategy):
-                raise PlayerException("La stratégie n'herite pas de la classe SoccerStrategy")
             self._strategy=deepcopy(strat)
     def __eq__(self,other):
-        return (self.position == other.position) and (self.angle == other.angle) and (self.speed == other.speed)\
+        return self.id == other.id and (self.position == other.position) and (self.angle == other.angle) and (self.speed == other.speed)\
                 and (self._num_before_shoot == other._num_before_shoot)
     @property
     def name(self):
@@ -71,12 +68,11 @@ class SoccerPlayer(object):
         self._strategy=strat
     def compute_strategy(self,state,teamid):
         try:
-		if self._strategy:
-           		 return self.strategy.compute_strategy(state,self,teamid)
-        	raise PlayerException('Pas de strategie définie pour le joueur %s' %self.get_name())
-	except Exception as e:
-		print "********* %s" % (e,)
-	return SocerAction()
+            return self.strategy.compute_strategy(state,self,teamid)
+        except Exception as e:
+		    print "*********\n erreur pour joueur %s : %s \n *********" % (self,e,)
+        return SocerAction()
+
 ###############################################################################
 # SoccerTeam
 ###############################################################################
@@ -89,14 +85,13 @@ class SoccerTeam:
         self._club=None
 
     def __eq__(self,other):
-        other_players = other.players
+        other_players = list(other.players)
         for p in self._players:
             try:
                 other_players.remove(p)
             except ValueError:
                 return False
         return True
-
     @property
     def club(self):
         return self._club
@@ -107,9 +102,10 @@ class SoccerTeam:
         self._name+="."+name
     def add_player(self,player):
         if player.name in [p.name for p in self.players]:
-            raise IncorrectTeamException('Nom de joueur dupliqué : '%player.name)
-        self._players.append(player)
+            self.add_exception('Nom de joueur dupliqué : %s ' %(player.name,) )
+            raise Exception('Nom de joueur dupliqué : %s ' % (player.name,))
         player.id=len(self._players)
+        self._players.append(player)
     @property
     def name(self):
         return self._name
@@ -129,17 +125,26 @@ class SoccerTeam:
             if p.name==name:
                 return p
         return None
+    def add_exception(self,e):
+        self._exceptions.append(e)
+    @property
+    def exceptions(self):
+        return self._exceptions
     @property
     def players(self):
         return self._players
     def compute_strategies(self,state,teamid):
         res=[]
         for p in self.players:
-            action=p.compute_strategy(state,teamid)
-            if not isinstance(action,mdpsoccer.SoccerAction):
-                raise StrategyException("Le resultat n'est pas une action : player %s, strategie %s " % (p.name,p.get_strategy().name))
+            try:
+                action=p.compute_strategy(state,teamid)
+                if not isinstance(action,mdpsoccer.SoccerAction):
+                    raise Exception("Le resultat n'est pas une action : player %s, strategie %s " % (p.name,p.get_strategy().name))
+            except Exception as e:
+                self.add_exception(e)
             res.append(action)
         return res
+
     def begin_battles(self,state,battles_count,max_step):
         for p in self.players:
             p.strategy.begin_battles(state,battles_count,max_step)
@@ -168,7 +173,6 @@ class SoccerClub:
         self.teams=dict()
         self.login=login
         self._exceptions=[]
-
     def get_num_teams(self,nbp=None):
         if not nbp:
             return sum([ len(team) for team in self.teams.values()])
@@ -185,8 +189,6 @@ class SoccerClub:
         for team in teams:
             self.add_team(team)
 
-    def add_exception(self,e):
-        self._exceptions.append(e)
     def __str__(self):
         return self.name
 
@@ -198,8 +200,18 @@ class Score:
         self.draw=0
         self.gf=0
         self.ga=0
-        self._team=team
-    def add_score(self,gf,ga):
+        self._list_battles=[]
+        if team:
+            self._team=team.name
+            self._login=team.club.login
+            self._club=team.club.name
+        else:
+            self._team=""
+            self._login=""
+            self._club=""
+    def add_score(self,gf,ga,team=None):
+        if team:
+            self._list_battles.append(((team.club.login,team.club.name,team.name),gf,ga))
         self.gf+=gf
         self.ga+=ga
         if gf>ga:
@@ -209,20 +221,17 @@ class Score:
         if gf==ga:
             self.draw+=1
     @property
+    def battles(self):
+        return list(self._list_battles)
+    @property
     def team(self):
-        if self._team:
-            return self._team.name
-        return ""
+        return self._team
     @property
     def club(self):
-        if self._team:
-            return self._team.club.name
-        return ""
+        return self._club
     @property
     def login(self):
-        if self._team:
-            return self._team.club.login
-        return ""
+        return self._login
     @property
     def score(self):
         return 3*self.win+self.draw
@@ -239,6 +248,7 @@ class Score:
         self.draw=0
         self.gf=0
         self.ga=0
+        self._list_battles=[]
     def __str__(self):
         return "%d (%d,%d,%d) - (%d,%d)" % (self.score,self.win,self.loose,self.draw,self.gf,self.ga)
 
@@ -255,7 +265,6 @@ class SoccerTournament:
         myclub = deepcopy(club)
         for nbp in self.list_games:
             if nbp not in myclub.teams:
-                myclub.add_exception("Not team for %d players" % nbp)
                 continue
             last_team=club.teams[nbp][-1]
             for i in range(club.get_num_teams(nbp),self.max_teams):
@@ -320,16 +329,20 @@ class SoccerTournament:
             print "Tournoi %d joueurs\n" % (nbp,)
             for i,b in enumerate(self.battles[nbp]):
                 try:
-			b.run_multiple_battles(nbgoals,max_time)
+                    b.run_multiple_battles(nbgoals,max_time)
                 except Exception as e:
-			print "****** %s" % (e,)
-		print "Game ended %d/%d: %s\n" % (i,len(self.battles[nbp])-1,b)
+                    print "****** %s" % (e,)
+                print "Game ended %d/%d: %s\n" % (i,len(self.battles[nbp])-1,b)
             self.scores[nbp]=self.build_scores(self.battles[nbp])
         return self.battles
-    def do_some_battles(self,only=None,nbp=None,login=None,club=None,team=None,nbgoals=10,max_time=5000):
-        res = self.get_battles(nbp,login,club,team)
+
+    def do_some_battles(self,only=False,nbp=None,login=None,club=None,team=None,nbgoals=10,max_time=5000):
+        res = self.get_battles(nbp,login,club,team,only)
         for i,b in enumerate(res):
-            b.run_multiple_battles(nbgoals,max_time)
+            try:
+                b.run_multiple_battles(nbgoals,max_time)
+            except Exception as e:
+                print "*******  %s" % (e,)
             print "Game ended %d/%d : %s" % (i,len(res)-1,b)
         return res
 
@@ -337,20 +350,12 @@ class SoccerTournament:
     def build_scores(battles_list):
         res=dict()
         for b in battles_list:
-            tup1= (b.team1.club.login,b.team1.club.name,b.team1.name)
+            tup1 = (b.team1.club.login,b.team1.club.name,b.team1.name)
             tup2 = (b.team2.club.login,b.team2.club.name,b.team2.name)
             if tup1 not in res:
                 res[tup1]=Score(b.team1)
             if tup2 not in res:
                 res[tup2]=Score(b.team2)
-            res[tup1].add_score(b.score_team1,b.score_team2)
-            res[tup2].add_score(b.score_team2,b.score_team1)
-        return res
-
-    def get_best_by_club(self):
-        res=dict()
-        for nbp in self.list_games:
-            res[nbp]=[]
-            for c in self.clubs:
-                res[nbp].append(max(self.build_scores(self.get_battles(nbp,c.login,c.name))))
+            res[tup1].add_score(b.score_team1,b.score_team2,b.team2)
+            res[tup2].add_score(b.score_team2,b.score_team1,b.team1)
         return res

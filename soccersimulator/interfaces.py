@@ -21,18 +21,17 @@ import pickle
 
 class AbstractSoccerObserver(object):
     def begin_battles(self,state,count,max_step):
-        raise NotImplementedError,'begin_battles'
+        pass
     def start_battle(self,state):
-        raise NotImplementedError,'start_battle'
+        pass
     def update_battle(self,action_team1,action_team2,state,step):
-        raise NotImplementedError,'update_battle'
+        pass
     def finish_battle(self,state,winner):
-        raise NotImplementedError, 'finish_battle'
+        pass
     def end_battles(self):
-        raise NotImplementedError,'end_battles'
+        pass
     def is_ready(self):
         return True
-
     def set_soccer_battle(self,soccer_battle):
         self._soccer_battle=soccer_battle
         self._soccer_battle.listeners+=self
@@ -113,6 +112,7 @@ class LogListener(AbstractSoccerObserver):
             team2.add_player(soccerobj.SoccerPlayer(p,strategies.ReplayStrategy(actions,states)))
         return team1,team2
 
+
 class ObjectSprite:
         def __init__(self,name="",movable=True,items=None):
             self.primitives=[]
@@ -158,10 +158,7 @@ class ObjectSprite:
                 gl.glEnd()
             gl.glPopMatrix()
           except Exception,e:
-              #print "***********\n------- %s -------\n**********" % self.name
-              #print "***********\n------- %s \n %s \n %s -------\n**********" % (str(p.verts),str(p.color),str(p.primtype))
               time.sleep(1)
-              #raise e
 
 TEAM1_COLOR=[0.9,0.1,0.1]
 TEAM2_COLOR=[0.1,0.1,0.9]
@@ -322,7 +319,7 @@ class PygletObserver(pyglet.window.Window,AbstractSoccerObserver):
                 for d in self._sprites.values():
                     d.draw()
         except Exception:
-            pass
+            time.sleep(1)
     def on_draw(self):
         if self._thread:
             self.render()
@@ -369,7 +366,7 @@ class PygletObserver(pyglet.window.Window,AbstractSoccerObserver):
             gl.glMatrixMode(gl.GL_MODELVIEW)
             gl.glLoadIdentity()
         except Exception:
-            pass
+            time.sleep(1)
     def is_ready(self):
         return self._is_ready
     def switch_manual_step(self):

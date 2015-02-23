@@ -154,18 +154,18 @@ class Vector2D(object):
         return res
 
 
-class SoccerException(Exception):
-    def __init__(self,msg):
-        self.msg=msg
-    def __str__(self):
-        return "Exception %s : %s" % (self.__class__,self.msg)
-class IncorrectTeamException(SoccerException):
-    pass
-class PlayerException(SoccerException):
-    pass
-class StrategyException(SoccerException):
-    pass
-class SoccerBattleException(SoccerException):
-    pass
-class SoccerStateException(SoccerException):
-    pass
+# class SoccerException(Exception):
+#     def __init__(self,msg):
+#         self.msg=msg
+#     def __str__(self):
+#         return "Exception %s : %s" % (self.__class__,self.msg)
+# class IncorrectTeamException(SoccerException):
+#     pass
+# class PlayerException(SoccerException):
+#     pass
+# class StrategyException(SoccerException):
+#     pass
+# class SoccerBattleException(SoccerException):
+#     pass
+# class SoccerStateException(SoccerException):
+#     pass
