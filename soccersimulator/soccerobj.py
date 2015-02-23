@@ -139,7 +139,7 @@ class SoccerTeam:
             try:
                 action=p.compute_strategy(state,teamid)
                 if not isinstance(action,mdpsoccer.SoccerAction):
-                    raise Exception("Le resultat n'est pas une action : player %s, strategie %s " % (p.name,p.get_strategy().name))
+                    raise Exception("Le resultat n'est pas une action : player %s, strategie %s " % (p.name,p.strategy.name))
             except Exception as e:
                 self.add_exception(e)
             res.append(action)
