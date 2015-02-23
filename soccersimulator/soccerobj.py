@@ -70,10 +70,13 @@ class SoccerPlayer(object):
     def strategy(self,strat):
         self._strategy=strat
     def compute_strategy(self,state,teamid):
-        if self._strategy:
-            return self.strategy.compute_strategy(state,self,teamid)
-        raise PlayerException('Pas de strategie définie pour le joueur %s' %self.get_name())
-
+        try:
+		if self._strategy:
+           		 return self.strategy.compute_strategy(state,self,teamid)
+        	raise PlayerException('Pas de strategie définie pour le joueur %s' %self.get_name())
+	except Exception as e:
+		print "********* %s" % (e,)
+	return SocerAction()
 ###############################################################################
 # SoccerTeam
 ###############################################################################
@@ -314,10 +317,13 @@ class SoccerTournament:
     def do_battles(self,nbgoals=10,max_time=5000):
         self.scores=dict()
         for nbp in self.list_games:
-            print "Tournoi %d joueurs" % (nbp,)
+            print "Tournoi %d joueurs\n" % (nbp,)
             for i,b in enumerate(self.battles[nbp]):
-                b.run_multiple_battles(nbgoals,max_time)
-                print "Game ended %d/%d: %s" % (i,len(self.battles[nbp])-1,b)
+                try:
+			b.run_multiple_battles(nbgoals,max_time)
+                except Exception as e:
+			print "****** %s" % (e,)
+		print "Game ended %d/%d: %s\n" % (i,len(self.battles[nbp])-1,b)
             self.scores[nbp]=self.build_scores(self.battles[nbp])
         return self.battles
     def do_some_battles(self,only=None,nbp=None,login=None,club=None,team=None,nbgoals=10,max_time=5000):
