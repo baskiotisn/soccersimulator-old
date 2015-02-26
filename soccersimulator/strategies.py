@@ -4,6 +4,11 @@ from copy import deepcopy
 from soccer_base import *
 import mdpsoccer
 import pickle
+import os
+import datetime
+
+def time_stamp():
+    return datetime.datetime.now().strftime("%y%m%d-%H%M%S-%f")
 
 class SoccerStrategy(object):
     name="Not Defined"
@@ -20,10 +25,13 @@ class SoccerStrategy(object):
     def compute_strategy(self,state,player,teamid):
         raise NotImplementedError,"compute_strategy"
 
-class CombineStrategy(SoccerStrategy):
-    def __init__(self,name):
-        self.name=name
+class ListStrategy(SoccerStrategy):
+    def __init__(self):
+        self.name="Abstract list strategy"
         self.strategies=[]
+    def begin_battles(self,state,count,max_step):
+        for s in self.strategies:
+            s.begin_battles(state,count,max_step)
     def add_strategy(self,strat):
         self.strategies.append(strat)
     def start_battle(self,state):
@@ -32,31 +40,74 @@ class CombineStrategy(SoccerStrategy):
     def finish_battle(self,won):
         for s in self.strategies:
             s.finish_battle(won)
+    def end_battles(self):
+        for s in self.strategies:
+            s.end_battles()
+
+
+class SelectorStrategy(ListStrategy):
+    def __init__(self,list_strat,list_cond):
+        self.name="Selecteur elegant"
+        self.strategies = list_strat
+        self.list_cond = list_cond
+    def selector(self,state,player,teamid):
+        for i,cond in enumerate(self.list_cond):
+            if cond(state,player,teamid):
+                return i
+        return -1
+    def compute_strategy(self,state,player,teamid):
+        return self.strategies[self.selector(state,player,teamid)].compute_strategies(state,player,teamid)
+
+class CombineStrategy(ListStrategy):
+    def __init__(self):
+        self.name=name
+        self.strategies=[]
     def compute_strategy(self,state,player,teamid):
         socact=SoccerAction()
         for s in self.strategies:
-            socact=s.compute_strategy(state,player,teamid)
+            socact+=s.compute_strategy(state,player,teamid)
         return socact
 
-class ReplayStrategy(SoccerStrategy):
-    def __init__(self,actions=None,states=None):
-        super(ReplayStrategy,self).__init__("Replay")
-        self.actions=actions
-        self.states=states
-        self.i_battles=0
-        self.i_state=0
-    def begin_battles(self,state,count,max_step):
-        self.i_state=0
-        self.i_battles=0
-    def start_battle(self,state):
-        self.i_state=0
-        #if self.states[self.i_battles][self.i_state]!=state:
-        #    raise Exception, "Not same initial state"
+
+class InteractStrategy(ListStrategy):
+    def __init__(self,list_key,list_strat,filename=None,save_all=False):
+        self.name="Interact Strat abstract"
+        if len(list_strat)!=len(list_key):
+            raise Exception("InteractStrategy : pas meme longueur pour key_config et list_strat")
+        self.strategies=list(list_strat)
+        self.list_key=list(list_key)
+        self.current=self.strategies[0]
+        self.states=[]
+        self.save_all=save_all
+        self.fn=filename
+        self.cur_file=None
+        self.state=None
+
+    def __getstate__(self):
+        odict=self.__dict__.copy()
+
+        return odict
+
     def compute_strategy(self,state,player,teamid):
-        #if state!=self.states[self.i_battles][self.i_state]:
-        #        raise Exception,"Not same state : battle %d, state %d" % (self.i_battles,self.i_state)
-        act=self.actions[self.i_battles][self.i_state]
-        self.i_state+=1
-        return act
+        self.state=state
+        if self.save_all:
+            self.states.append((self.state.copy_safe(),teamid,player.id,self.current.name))
+        return self.current.compute_strategy(state,player,teamid)
+    def send_to_strat(self,teamid,player,key):
+        if key in self.list_key:
+            self.current=self.strategies[self.list_key.index(key)]
+            if not self.save_all:
+                self.states.append((self.state.copy_safe(),teamid,player.id,self.current.name))
+            return True
+        return False
+    def start_battle(self,state):
+        super(InteractStrategy,self).start_battle(state)
+        self.state=state
+        if self.fn:
+            self.cur_file="%s-%s.pkl" % (self.fn,time_stamp(),)
+        self.states=[]
     def finish_battle(self,won):
-        self.i_battles+=1
+        super(InteractStrategy,self).finish_battle(won)
+        if self.cur_file:
+            with open(self.cur_file,"wb") as f :
+                pickle.dump(self.states,f)
