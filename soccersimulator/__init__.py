@@ -3,10 +3,10 @@ import mdpsoccer
 import soccer_base
 import strategies
 
-from strategies import SoccerStrategy
+from strategies import SoccerStrategy, CombineStrategy, ListStrategy, InteractStrategy
 from soccer_base import *
 #Vector2D, Score, SoccerException, IncorrectTeamException, PlayerException,StrategyException,SoccerBattleException,SoccerStateException
-from interfaces import ConsoleListener, PygletObserver, LogListener, AbstractSoccerObserver, pyglet
+from interfaces import ConsoleListener, PygletAbstractObserver, PygletReplay, PygletObserver, LogObserver, AbstractSoccerObserver, pyglet
 from soccerobj import SoccerTeam, SoccerPlayer, SoccerBall, SoccerClub, SoccerTournament, Score
 from mdpsoccer import SoccerBattle, SoccerAction, SoccerState, Events, SoccerEvents
 

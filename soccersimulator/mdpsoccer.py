@@ -4,7 +4,7 @@ import soccerobj
 import numpy as np
 import time
 from copy import deepcopy
-
+import strategies
 
 ###############################################################################
 # SoccerAction
@@ -45,8 +45,21 @@ class SoccerState:
         self.ball=ball
         self._width=GAME_WIDTH
         self._height=GAME_HEIGHT
+        self.actions_team1=None
+        self.actions_team2=None
     def __eq__(self,other):
         return (self.team1 == other.team1) and (self.team2 == other.team2) and (self.ball == other.ball)
+    def copy_safe(self):
+        team1=self.team1.copy_safe()
+        team2=self.team2.copy_safe()
+        state=SoccerState(team1,team2,deepcopy(self.ball))
+        state._winning_team=self._winning_team
+        state._width=self._width
+        state._height=self._height
+        state.actions_team1=self.actions_team1
+        state.actions_team2=self.actions_team2
+        return state
+
     @property
     def winning_team(self):
         return self._winning_team
@@ -147,11 +160,11 @@ class SoccerState:
             player.speed=new_player_speed
             player.position=new_player_position
 
-    def apply_actions(self,team1_actions,team2_actions):
+    def apply_actions(self):
         self.sum_of_shoots=Vector2D()
-        for i,action in enumerate(team1_actions):
+        for i,action in enumerate(self.actions_team1):
             self.apply_action(self.team1[i],action)
-        for i,action in enumerate(team2_actions):
+        for i,action in enumerate(self.actions_team2):
             self.apply_action(self.team2[i],action)
 
         frotte_ball_square=self.ball.speed.copy()
@@ -215,6 +228,21 @@ class SoccerBattle(object):
         self.listeners=SoccerEvents()
         self.battles_count=battles_count
         self.max_steps=max_steps
+        self.state=None
+        self.cur_step=0
+        self.cur_battle=0
+        self._is_ready=False
+        self._ongoing=False
+        self._father=None
+
+    def copy_safe(self):
+        battle=SoccerBattle(self.team1.copy_safe(),self.team2.copy_safe(),self.battles_count,self.max_steps)
+        battle.score_team1=self.score_team1
+        battle.score_team2=self.score_team2
+        battle.score_draw=self.score_draw
+        if self.state:
+            battle.state=self.state.copy_safe()
+        return battle
     def __str__(self):
         return "%s vs %s : %s-%s (%s)" %(str(self.team1), str(self.team2), str(self.score_team1),str(self.score_team2),str(self.score_draw))
     def init_score(self):
@@ -224,22 +252,47 @@ class SoccerBattle(object):
     @property
     def num_players(self):
         return self.team1.num_players
-    def start_by_thread(self,father,battles_count=None,max_steps=None):
-        self._father=father
-        self.run_multiple_battles(battles_count,max_steps)
+
     def run_multiple_battles(self,battles_count=None,max_steps=None):
+        self._is_ready=False
+        self._ongoing=True
         if battles_count:
             self.battles_count=battles_count
         if max_steps:
             self.max_steps=max_steps
-        self.begin_battles(self.create_initial_state(),self.battles_count,self.max_steps)
-        for i in range(self.battles_count):
-            self.run(self.max_steps)
-        self.end_battles()
-        self._father=None
+        self.begin_battles(self.battles_count,self.max_steps)
+        self.next_battle()
+        self._is_ready=True
+        if not self._father:
+            while self._ongoing:
+                self.update()
 
-    def begin_battles(self,state,battles_count,max_steps):
+    def start_by_thread(self,father,battles_count=None,max_steps=None):
+        self._father=father
+        self._is_ready=False
+        self._ongoing=True
+        self.run_multiple_battles(battles_count,max_steps)
+
+    def update(self):
+        if not self._is_ready or not self._ongoing:
+            return
+        self._is_ready=False
+        if not self.next_step():
+            self._ongoing=self.next_battle()
+        self._is_ready=True
+
+    def next_battle(self):
+        if self.cur_battle<self.battles_count:
+                self.cur_battle+=1
+                self.start_battle()
+                return True
+        self.end_battles()
+        return False
+
+    def begin_battles(self,battles_count,max_steps):
         self.init_score()
+        self.cur_battle=0
+        state=self.create_initial_state()
         st=deepcopy(state)
         self.listeners.begin_battles(st,battles_count,max_steps)
         st=deepcopy(state)
@@ -256,63 +309,62 @@ class SoccerBattle(object):
         self.team2.end_battles()
         self.listeners.end_battles()
 
-    def start_battle(self,state):
-        st = deepcopy(state)
-        self.team1.start_battle(st)
-        for i,p in enumerate(st.team1.players):
-            state.team1[i].strategy=p.strategy
-        st = deepcopy(state)
-        self.team2.start_battle(st)
-        for i,p in enumerate(st.team2.players):
-            state.team2[i].strategy=p.strategy
-        st = deepcopy(state)
+    def start_battle(self):
+        self.cur_step=0
+        self.state=self.create_initial_state()
+        st1 = deepcopy(self.state)
+        st2 = deepcopy(self.state)
+        st1.team1.start_battle(st1)
+        for i,p in enumerate(st1.team1.players):
+            self.state.team1[i].strategy=p.strategy
+        st = deepcopy(self.state)
+        st2.team2.start_battle(st2)
+        for i,p in enumerate(st2.team2.players):
+            self.state.team2[i].strategy=p.strategy
+        st = deepcopy(self.state)
         self.listeners.start_battle(st)
 
-    def finish_battle(self,state):
-        if state.winning_team==0:
-            self.team1.finish_battle(0)
-            self.team2.finish_battle(0)
-        if state.wining_team==1:
-            self.team1.finish_battle(1)
-            self.team2.finish_battle(-1)
-        if state.winning_team==2:
-            self.team1.finish_battle(-1)
-            self.team2.finish_battle(1)
-        for i,p in enumerate(state.team1.players):
+    def finish_battle(self):
+        if self.state.winning_team==0:
+            self.state.team1.finish_battle(0)
+            self.state.team2.finish_battle(0)
+        if self.state.winning_team==1:
+            self.state.team1.finish_battle(1)
+            self.state.team2.finish_battle(-1)
+        if self.state.winning_team==2:
+            self.state.team1.finish_battle(-1)
+            self.state.team2.finish_battle(1)
+        for i,p in enumerate(self.state.team1.players):
             self.team1[i].strategy=p.strategy
-        for i,p in enumerate(state.team2.players):
+        for i,p in enumerate(self.state.team2.players):
             self.team2[i].strategy=p.strategy
-        self.listeners.finish_battle(state.winning_team)
+        self.listeners.finish_battle(self.state.winning_team)
+        self._ongoing=False
 
-    def run(self,max_steps):
-            state=self.create_initial_state()
-            result=-1
-            self.start_battle(state)
-            for i in range(max_steps):
-                st=deepcopy(state)
-                actions_team1=st.team1.compute_strategies(st,1)
-                for j,p in enumerate(st.team1.players):
-                    state.team1[j].strategy=p.strategy
-                st = deepcopy(state)
-                actions_team2=st.team2.compute_strategies(st,2)
-                for j,p in enumerate(st.team2.players):
-                    state.team2[j].strategy=p.strategy
-                state.apply_actions(actions_team1,actions_team2)
-                st = deepcopy(state)
-                self.listeners.update_battle(actions_team1,actions_team2,st,i)
-                while sum(self.listeners.is_ready())!=len(self.listeners):
-                    time.sleep(0.0001)
-                if state.winning_team>0:
-                    break
-                if hasattr(self,"_father") and self._father.stop_thread:
-                    break
-            if state.winning_team==1:
-                self.score_team1+=1
-            if state.winning_team==2:
-                self.score_team2+=1
-            if state.winning_team==0:
-                self.score_draw+=1
-            return state.winning_team
+    def next_step(self):
+        if self.cur_step<self.max_steps:
+            st1=deepcopy(self.state)
+            st2=deepcopy(self.state)
+            self.state.actions_team1=st1.team1.compute_strategies(st1,1)
+            for j,p in enumerate(st1.team1.players):
+                self.state.team1[j].strategy=p.strategy
+            self.state.actions_team2=st2.team2.compute_strategies(st2,2)
+            for j,p in enumerate(st2.team2.players):
+                self.state.team2[j].strategy=p.strategy
+            self.state.apply_actions()
+            st = deepcopy(self.state)
+            self.listeners.update_battle(st,self.cur_step)
+            self.cur_step+=1
+            if self.state.winning_team==0:
+                return True
+        if self.state.winning_team==1:
+            self.score_team1+=1
+        if self.state.winning_team==2:
+            self.score_team2+=1
+        if self.state.winning_team==0:
+            self.score_draw+=1
+        self.finish_battle()
+        return False
 
     def create_initial_state(self):
         state=SoccerState(deepcopy(self.team1),deepcopy(self.team2),soccerobj.SoccerBall())
@@ -341,30 +393,45 @@ class SoccerBattle(object):
         state.ball.position.y=state.height/2
         return state
 
+    def send_to_strat(self,*args,**kwargs):
+        if self.state:
+            for p in self.state.team1.players:
+                if hasattr(p.strategy,"send_to_strat"):
+                        p.strategy.send_to_strat(1,p,*args,**kwargs)
+            for p in self.state.team2.players:
+                if hasattr(p.strategy,"send_to_strat"):
+                        p.strategy.send_to_strat(2,p,*args,**kwargs)
 
 
 class Events(object):
-   def __init__(self):
+    def __init__(self):
        for e in self.__events__:
            self.__getattr__(e)
-   def __getattr__(self, name):
+    def __getattr__(self, name):
       if hasattr(self.__class__, '__events__'):
          assert name in self.__class__.__events__, \
                 "Event '%s' is not declared" % name
       self.__dict__[name] = ev = _EventSlot(name)
       return ev
-   def __str__(self): return 'Events :' + str(list(self))
-   __repr__ = __str__
-   def __len__(self):
+    def __str__(self): return 'Events :' + str(list(self))
+    __repr__ = __str__
+    def __len__(self):
        if len(self.__dict__)!=0:
            return len(self.__dict__.values()[0])
+
        return 0
-   def __iter__(self):
+
+    def __iter__(self):
       def gen(dictitems=self.__dict__.items()):
          for attr, val in dictitems:
             if isinstance(val, _EventSlot):
                yield val
       return gen()
+    def __getstate__(self):
+        return dict()
+    def __setstate__(self,d):
+        pass
+
 
 class _EventSlot(object):
    def __init__(self, name):
@@ -373,7 +440,7 @@ class _EventSlot(object):
    def __repr__(self):
       return self.__name__
    def __call__(self, *a, **kw):
-      return [ f(*a, **kw)  for f in self.targets]
+      return [ f(*a, **kw) for f in self.targets]
    def __iadd__(self, f):
       self.targets.append(f)
       return self

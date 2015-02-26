@@ -1,14 +1,16 @@
-from soccersimulator import Vector2D, SoccerBattle, SoccerPlayer, SoccerTeam, SoccerAction, SoccerStrategy
-from soccersimulator import PygletObserver,ConsoleListener,LogListener
-from soccersimulator import PLAYER_RADIUS, BALL_RADIUS
+from soccersimulator import Vector2D,  SoccerAction, SoccerStrategy
 
 
 class RandomStrategy(SoccerStrategy):
     def __init__(self):
         self.name="Random"
-    def start_battle(self,state):
-        pass
-    def finish_battle(self,won):
-        pass
+        self.keys=[]
     def compute_strategy(self,state,player,teamid):
-	return SoccerAction(Vector2D.create_random(-0.1,0.1),Vector2D.create_random(-0.1,0.1))
+	       return SoccerAction(Vector2D.create_random(-0.1,0.1),Vector2D.create_random(-0.1,0.1))
+
+
+class FonceurStrategy(SoccerStrategy):
+    def __init__(self):
+        self.name="Fonceur"
+    def compute_strategy(self,state,player,teamid):
+        return SoccerAction(state.ball.position-player.position,state.get_goal_center((3-teamid))-player.position)

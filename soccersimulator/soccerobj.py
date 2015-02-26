@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 from soccer_base import *
 import mdpsoccer
-from copy import deepcopy
 from functools import total_ordering
-
+from copy import deepcopy
+import strategies
 
 ###############################################################################
 # SoccerPlayer
@@ -35,11 +35,25 @@ class SoccerPlayer(object):
         self._num_before_shoot=0
         self._strategy=None
         self.id =-1
-        if strat:
-            self._strategy=deepcopy(strat)
+        #if strat:
+        #    self._strategy=deepcopy(strat)
+        self._strategy=strat
     def __eq__(self,other):
         return self.id == other.id and (self.position == other.position) and (self.angle == other.angle) and (self.speed == other.speed)\
                 and (self._num_before_shoot == other._num_before_shoot)
+    def copy_safe(self):
+        #player=deepcopy(self)
+        player=SoccerPlayer(self.name,self._strategy)
+        player.position=self.position
+        player.angle=self.angle
+        player.speed=self.speed
+        player._num_before_shoot=self._num_before_shoot
+        player.id=self.id
+        player._strategy=strategies.SoccerStrategy(self.strategy.name)
+        return player
+    def copy_me(self):
+        player=self.copy_safe()
+        player._strategy=self._strategy
     @property
     def name(self):
         return self._name
@@ -92,6 +106,17 @@ class SoccerTeam:
             except ValueError:
                 return False
         return True
+    def copy_safe(self):
+        team = SoccerTeam(self.name)
+        for p in self:
+            team.add_player(p.copy_safe())
+        return team
+    def copy_me(self):
+        team = SoccerTeam(self.name)
+        for p in self:
+            team.add_player(p.copy_me())
+        team._exceptions=list(self._exceptions)
+        team._club=self._club
     @property
     def club(self):
         return self._club
@@ -136,6 +161,7 @@ class SoccerTeam:
     def compute_strategies(self,state,teamid):
         res=[]
         for p in self.players:
+            action=mdpsoccer.SoccerAction()
             try:
                 action=p.compute_strategy(state,teamid)
                 if not isinstance(action,mdpsoccer.SoccerAction):
