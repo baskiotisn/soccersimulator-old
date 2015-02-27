@@ -54,11 +54,13 @@ class ConsoleListener(AbstractSoccerObserver):
         print "Fin combats"
 
 
-
+class LogListener:
+    pass
 class LogObserver(AbstractSoccerObserver):
-    def __init__(self,filename=None,autosave=True):
+    def __init__(self,filename=None,append=True,autosave=True):
         self.autosave=autosave
         self.filename=filename
+        self._append=append
     def set_soccer_battle(self,soccer_battle):
         super(LogObserver,self).set_soccer_battle(soccer_battle)
         self._soccer_battle=soccer_battle.copy_safe()
@@ -79,9 +81,8 @@ class LogObserver(AbstractSoccerObserver):
         if not fn:
             fn = self.filename
         if self.filename:
-            with file(self.filename,"wb") as f:
-
-                pickle.dump(self._soccer_battle,f)
+            with file(self.filename,"a" if self._append else "wb") as f:
+                pickle.dump(self._soccer_battle,f,-1)
 
 
 class ObjectSprite:
@@ -291,6 +292,7 @@ class PygletAbstractObserver(pyglet.window.Window):
                 self._background.draw()
                 for d in self._sprites.values():
                     d.draw()
+
         except Exception:
             time.sleep(0.0001)
 
@@ -341,40 +343,78 @@ class PygletReplay(PygletAbstractObserver):
 
     def __init__(self,width=1200,height=800):
         super(PygletReplay,self).__init__(width,height)
-        self.key_handlers.update({pyglet.window.key._1: lambda w: w.play()})
+        self.key_handlers.update({pyglet.window.key.P: lambda w: w.play(),\
+                                  pyglet.window.key.A: lambda w: w.play_prev_tour(),\
+                                  pyglet.window.key.Z : lambda w: w.play_next_tour(),\
+                                  pyglet.window.key.Q: lambda w: w.play_prev_battle(),\
+                                  pyglet.window.key.S: lambda w: w.play_next_battle()})
         pyglet.clock.schedule_interval(self.update,1./self._fps)
-        self.i_battle=0
+        self._i_battle=0
+        self.i=0
+        self._tournament=None
 
     def play(self):
-        if not self._soccer_battle or len(self._soccer_battle.battles)==0:
+        if not self._tournament:
             return
-        self.i_battle=0
-        self.play_next()
+        self.set_soccer_battle(self._tournament[self._i_tour])
+        self._i_battle=0
+        self.cur_battle=self._soccer_battle.battles[self._i_battle]
+        self.i=0
         self.set_ready()
 
-    def play_next(self):
-        if self.i_battle<len(self._soccer_battle.battles):
-            self.play_one(self._soccer_battle.battles[self.i_battle])
-    def play_one(self,battle):
-        self.cur_battle=battle
-        self.i=0
+    def play_prev_battle(self):
+        self._is_ready=False
+        if self._i_battle>0:
+            self.i_battle-=1
+            self.cur_battle=self._soccer_battle.battles[self._i_battle]
+            self.i=0
+        self._is_ready=True
+
+    def play_next_battle(self):
+        self._is_ready=False
+        self._i_battle+=1
+        if self._i_battle<len(self._soccer_battle.battles):
+            self.cur_battle=self._soccer_battle.battles[self._i_battle]
+            self.i=0
+        else:
+            self.play_next_tour()
+        self._is_ready=True
+
+    def play_prev_tour(self):
+        self._is_ready=False
+        if self._i_tour>0:
+            self._i_tour-=1
+            self.play()
+        self._is_ready=True
+
+    def play_next_tour(self):
+        self._is_ready=False
+        self._i_tour+=1
+        if self._i_tour<len(self._tournament):
+            self.play()
+        self._is_ready=True
 
     def update(self,dt):
         if not self.is_ready() or not self._soccer_battle:
             return
-        if self.i_battle<len(self._soccer_battle.battles):
-            if self.i<len(self.cur_battle):
-                self._state=self.cur_battle[self.i]
-                self.i+=1
-            else:
-                self.i_battle+=1
-                self.play_next()
+        if self.i<len(self.cur_battle):
+            self._state=self.cur_battle[self.i]
+            self.i+=1
+        else:
+            self.play_next_battle()
         super(PygletReplay,self).update(dt)
 
     def load(self,fn):
+        battles=[]
         with open(fn,"rb") as f:
-            battle=pickle.load(f)
-        self.set_soccer_battle(battle)
+            while 1:
+                try:
+                    battles.append(pickle.load(f))
+                except EOFError:
+                    break
+        self._tournament=battles
+        self._i_tour=0
+        print "Fin Load"
 
 class PygletObserver(PygletAbstractObserver):
 

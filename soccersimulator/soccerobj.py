@@ -4,6 +4,12 @@ import mdpsoccer
 from functools import total_ordering
 from copy import deepcopy
 import strategies
+import string
+import traceback
+import interfaces
+valid_chars=frozenset("%s%s%s" % (string.ascii_letters, string.digits,"_-.()[]"))
+def clean_fn(fn):
+    return ''.join(c if c in valid_chars else '' for c in fn)
 
 ###############################################################################
 # SoccerPlayer
@@ -13,6 +19,8 @@ class SoccerBall(object):
     def __init__(self,position=Vector2D(),speed=Vector2D()):
         self.position=position
         self.speed=speed
+    def copy(self):
+        return SoccerBall(self.position.copy(),self.speed.copy())
     @property
     def angle(self):
         return self.speed.angle
@@ -35,9 +43,9 @@ class SoccerPlayer(object):
         self._num_before_shoot=0
         self._strategy=None
         self.id =-1
-        #if strat:
-        #    self._strategy=deepcopy(strat)
-        self._strategy=strat
+        if strat:
+            self._strategy=deepcopy(strat)
+        #self._strategy=strat
     def __eq__(self,other):
         return self.id == other.id and (self.position == other.position) and (self.angle == other.angle) and (self.speed == other.speed)\
                 and (self._num_before_shoot == other._num_before_shoot)
@@ -51,9 +59,10 @@ class SoccerPlayer(object):
         player.id=self.id
         player._strategy=strategies.SoccerStrategy(self.strategy.name)
         return player
-    def copy_me(self):
+    def copy(self):
         player=self.copy_safe()
-        player._strategy=self._strategy
+        player._strategy=deepcopy(self._strategy)
+        return player
     @property
     def name(self):
         return self._name
@@ -84,8 +93,10 @@ class SoccerPlayer(object):
         try:
             return self.strategy.compute_strategy(state,self,teamid)
         except Exception as e:
-		    print "*********\n erreur pour joueur %s : %s \n *********" % (self,e,)
-        return SocerAction()
+        #    print "*********\n erreur pour joueur %s : %s \n *********" % (self,e,)
+        #    traceback.print_exc()
+            raise e
+
 
 ###############################################################################
 # SoccerTeam
@@ -111,12 +122,13 @@ class SoccerTeam:
         for p in self:
             team.add_player(p.copy_safe())
         return team
-    def copy_me(self):
+    def copy(self):
         team = SoccerTeam(self.name)
         for p in self:
-            team.add_player(p.copy_me())
+            team.add_player(p.copy())
         team._exceptions=list(self._exceptions)
         team._club=self._club
+        return team
     @property
     def club(self):
         return self._club
@@ -167,7 +179,7 @@ class SoccerTeam:
                 if not isinstance(action,mdpsoccer.SoccerAction):
                     raise Exception("Le resultat n'est pas une action : player %s, strategie %s " % (p.name,p.strategy.name))
             except Exception as e:
-                self.add_exception(e)
+                self.add_exception([e,traceback.format_exc()])
             res.append(action)
         return res
 
@@ -175,6 +187,7 @@ class SoccerTeam:
         for p in self.players:
             p.strategy.begin_battles(state,battles_count,max_step)
     def start_battle(self,state):
+        self._exceptions=[]
         for p in self.players:
             p.strategy.start_battle(state)
     def finish_battle(self,won):
@@ -279,13 +292,14 @@ class Score:
         return "%d (%d,%d,%d) - (%d,%d)" % (self.score,self.win,self.loose,self.draw,self.gf,self.ga)
 
 class SoccerTournament:
-    def __init__(self,name,list_games=[1,2,4],max_teams=3,same_club=False):
+    def __init__(self,name,list_games=[1,2,4],max_teams=3,same_club=False,save_fn=None):
         self.clubs=[]
         self.name=name
         self.list_games=list_games
         self.battles=dict()
         self.same_club=same_club
         self.max_teams=max_teams
+        self._save_fn=save_fn
 
     def add_club(self,club):
         myclub = deepcopy(club)
@@ -355,9 +369,14 @@ class SoccerTournament:
             print "Tournoi %d joueurs\n" % (nbp,)
             for i,b in enumerate(self.battles[nbp]):
                 try:
+                    if self.save_fn:
+                        fn=self.save_fn
+                        log=interfaces.LogObserver(fn,True)
+                        log.set_soccer_battle(b)
                     b.run_multiple_battles(nbgoals,max_time)
                 except Exception as e:
                     print "****** %s" % (e,)
+                    traceback.print_exc()
                 print "Game ended %d/%d: %s\n" % (i,len(self.battles[nbp])-1,b)
             self.scores[nbp]=self.build_scores(self.battles[nbp])
         return self.battles
@@ -366,9 +385,15 @@ class SoccerTournament:
         res = self.get_battles(nbp,login,club,team,only)
         for i,b in enumerate(res):
             try:
+                if self.save_fn:
+                    fn="%s_%s(%s)_%s(%s).pkl" % (self.save_fn,clean_fn(b.team1.name),clean_fn(b.team1.club.name),\
+                                                    clean_fn(b.team2.name),clean_fn(b.team2.club.name))
+                    log=interfaces.LogObserver(fn)
+                    log.set_soccer_battle(b)
                 b.run_multiple_battles(nbgoals,max_time)
             except Exception as e:
                 print "*******  %s" % (e,)
+                traceback.print_exc()
             print "Game ended %d/%d : %s" % (i,len(res)-1,b)
         return res
 
