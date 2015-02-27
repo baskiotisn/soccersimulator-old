@@ -28,18 +28,15 @@ list_key_player1=['a','z']
 list_key_player2=['q','s']
 list_strat_player1=[RandomStrategy(),FonceurStrategy()]
 list_strat_player2=[RandomStrategy(),FonceurStrategy()]
-inter_strat_player1=InteractStrategy(list_key_player1,list_strat_player1,"joueur1")
-inter_strat_player2=InteractStrategy(list_key_player2,list_strat_player2,"joueur2",True)
+
+# arguemnts :  liste des touches, liste des strategies, nom du fichier, tout sauvegarder ou non
+inter_strat_player1=InteractStrategy(list_key_player1,list_strat_player1,"test_interact.pkl")
+inter_strat_player2=InteractStrategy(list_key_player2,list_strat_player2,"test_interact.pkl",True)
 team3 = SoccerTeam("Interactive")
 team3.add_player(SoccerPlayer("Inter 1",inter_strat_player1))
 team3.add_player(SoccerPlayer("Inter 2",inter_strat_player2))
 teams =[team1,team2,team3]
 
-
-def load_pickle(fn):
-    with open(fn,"rb") as f:
-        obj=pickle.load(f)
-    return obj
 
 def exemple_simple():
     battle=SoccerBattle(teams[1],teams[1])
@@ -76,8 +73,14 @@ def exemple_replay():
     pyglet.app.run()
 
 
-def exemple_load_interact():
-    states=load_pickle(glob.glob("joueur1*")[-1])
+def exemple_load_interact(fn):
+    states=[]
+    with open(fn,"rb") as f:
+        while(1):
+            try:
+                states+=pickle.load(f)
+            except EOFError:
+                break
     print "%d etats dans la sauvegarde:" % (len(states))
     for e in states:
         state=e[0]

@@ -5,7 +5,6 @@ import numpy as np
 import time
 from copy import deepcopy
 import strategies
-
 ###############################################################################
 # SoccerAction
 ###############################################################################
@@ -14,6 +13,8 @@ class SoccerAction(object):
     def __init__(self,acceleration=Vector2D(),shoot=Vector2D()):
         self.acceleration=acceleration
         self.shoot=shoot
+    def copy(self):
+        return SoccerAction(self.acceleration.copy(),self.shoot.copy())
     def __str__(self):
         return "%s %s" % (self.acceleration,self.shoot)
     def __eq__(self,other):
@@ -52,7 +53,17 @@ class SoccerState:
     def copy_safe(self):
         team1=self.team1.copy_safe()
         team2=self.team2.copy_safe()
-        state=SoccerState(team1,team2,deepcopy(self.ball))
+        state=SoccerState(team1,team2,self.ball.copy())
+        state._winning_team=self._winning_team
+        state._width=self._width
+        state._height=self._height
+        state.actions_team1=self.actions_team1
+        state.actions_team2=self.actions_team2
+        return state
+    def copy(self):
+        team1=self.team1.copy()
+        team2=self.team2.copy()
+        state=SoccerState(team1,team2,self.ball.copy())
         state._winning_team=self._winning_team
         state._width=self._width
         state._height=self._height
@@ -293,13 +304,13 @@ class SoccerBattle(object):
         self.init_score()
         self.cur_battle=0
         state=self.create_initial_state()
-        st=deepcopy(state)
+        st=state.copy()
         self.listeners.begin_battles(st,battles_count,max_steps)
-        st=deepcopy(state)
+        st=state.copy()
         self.team1.begin_battles(st,battles_count,max_steps)
         for i,p in enumerate(st.team1.players):
             self.team1[i].strategy=p.strategy
-        st=deepcopy(state)
+        st=state.copy()
         self.team2.begin_battles(st,battles_count,max_steps)
         for i,p in enumerate(st.team2.players):
             self.team2[i].strategy=p.strategy
@@ -312,16 +323,16 @@ class SoccerBattle(object):
     def start_battle(self):
         self.cur_step=0
         self.state=self.create_initial_state()
-        st1 = deepcopy(self.state)
-        st2 = deepcopy(self.state)
+        st1 = self.state.copy()
+        st2 = self.state.copy()
         st1.team1.start_battle(st1)
         for i,p in enumerate(st1.team1.players):
             self.state.team1[i].strategy=p.strategy
-        st = deepcopy(self.state)
+        st = self.state.copy()
         st2.team2.start_battle(st2)
         for i,p in enumerate(st2.team2.players):
             self.state.team2[i].strategy=p.strategy
-        st = deepcopy(self.state)
+        st = self.state.copy()
         self.listeners.start_battle(st)
 
     def finish_battle(self):
@@ -343,18 +354,29 @@ class SoccerBattle(object):
 
     def next_step(self):
         if self.cur_step<self.max_steps:
-            st1=deepcopy(self.state)
-            st2=deepcopy(self.state)
+            st1=self.state.copy()
+            st2=self.state.copy()
             self.state.actions_team1=st1.team1.compute_strategies(st1,1)
             for j,p in enumerate(st1.team1.players):
                 self.state.team1[j].strategy=p.strategy
             self.state.actions_team2=st2.team2.compute_strategies(st2,2)
+            self.state.team1._exceptions=st1.team1._exceptions
             for j,p in enumerate(st2.team2.players):
                 self.state.team2[j].strategy=p.strategy
             self.state.apply_actions()
-            st = deepcopy(self.state)
+            self.state.team2._exceptions=st2.team2._exceptions
+            st = self.state.copy()
             self.listeners.update_battle(st,self.cur_step)
             self.cur_step+=1
+            if len(st1.team1.exceptions)>NB_MAX_EXCEPTIONS:
+                self.state.winning_team=2
+                print "\033[91m Too much exceptions for \033[92m %s \033[0m, last one :\n" % (st1.team1.name,)
+                print st1.team1.exceptions[-1][1]
+            if len(st2.team2.exceptions)>NB_MAX_EXCEPTIONS:
+                self.state.winning_team=1
+                print "\033[91m Too much exceptions for \033[92m %s \033[0m, last one : \n" % (st2.team2.name,)
+                print st2.team2.exceptions[-1][1]
+
             if self.state.winning_team==0:
                 return True
         if self.state.winning_team==1:
@@ -367,7 +389,7 @@ class SoccerBattle(object):
         return False
 
     def create_initial_state(self):
-        state=SoccerState(deepcopy(self.team1),deepcopy(self.team2),soccerobj.SoccerBall())
+        state=SoccerState(self.team1.copy(),self.team2.copy(),soccerobj.SoccerBall())
         quarters=[i*state.height/4 for i in range(1,4)]
         rows=[state.width*0.1,state.width*0.35,state.width*(1-0.35),state.width*(1-0.1)]
         if self.num_players!=1 and self.num_players!=2 and self.num_players !=4:

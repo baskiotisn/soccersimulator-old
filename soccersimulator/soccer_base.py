@@ -21,7 +21,7 @@ maxPlayerShoot=2.
 shootRandomAngle=0.1
 nbWithoutShoot=10
 MAX_GAME_STEPS=5000
-
+NB_MAX_EXCEPTIONS=1
 
 class Vector2D(object):
     """ 2D vector oject and operations with float coordinates

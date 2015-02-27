@@ -70,7 +70,7 @@ class CombineStrategy(ListStrategy):
 
 
 class InteractStrategy(ListStrategy):
-    def __init__(self,list_key,list_strat,filename=None,save_all=False):
+    def __init__(self,list_key,list_strat,filename=None,save_all=False,append=True):
         self.name="Interact Strat abstract"
         if len(list_strat)!=len(list_key):
             raise Exception("InteractStrategy : pas meme longueur pour key_config et list_strat")
@@ -82,11 +82,16 @@ class InteractStrategy(ListStrategy):
         self.fn=filename
         self.cur_file=None
         self.state=None
-
-    def __getstate__(self):
-        odict=self.__dict__.copy()
-
-        return odict
+        self._append=append
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            if k != 'states':
+                setattr(result, k, deepcopy(v, memo))
+        result.states=self.states
+        return result
 
     def compute_strategy(self,state,player,teamid):
         self.state=state
@@ -104,10 +109,13 @@ class InteractStrategy(ListStrategy):
         super(InteractStrategy,self).start_battle(state)
         self.state=state
         if self.fn:
-            self.cur_file="%s-%s.pkl" % (self.fn,time_stamp(),)
+            if self._append:
+                self.cur_file=self.fn
+            else:
+                self.cur_file="%s-%s.pkl" % (self.fn,time_stamp(),)
         self.states=[]
     def finish_battle(self,won):
         super(InteractStrategy,self).finish_battle(won)
         if self.cur_file:
-            with open(self.cur_file,"wb") as f :
-                pickle.dump(self.states,f)
+            with open(self.cur_file,"a" if self._append else "wb") as f :
+                pickle.dump(self.states,f,-1)
