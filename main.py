@@ -2,6 +2,7 @@ import os
 import sys
 import imp
 import soccersimulator
+from soccersimulator import PygletObserver
 import shutil
 import argparse
 import pickle
@@ -12,7 +13,6 @@ TARGET_PATH="/tmp/tournoi"
 GIT_LIST_2015=[("Benlog","Soccer-AI"),("SebXIII","Projet"),("andrenasturas","2I013"),("AlexandreCasanova","projet"),\
             ("mariene","projet_foot"),("Leynad","ProjetFoot"),("ArezkiSky","Projet-soccer-2I013"),("Maumiz","ProjetSoccer"),\
             ("kabylemak","soccerproject"),("timotheb","projet"),("orangemango","orange-soccer-team")]
-
 
 def load_from_github(login,project,git_import=True):
     # clone le depot github correspondant
@@ -43,8 +43,8 @@ def load_from_github(login,project,git_import=True):
         club.name=mymod.name
     return club
 
-def load_tournament_git_list(name,nbp,git_list,git_import=True,max_teams=5):
-    tournament = soccersimulator.SoccerTournament(name,nbp,max_teams=max_teams)
+def load_git_list(tour,git_list,git_import=True):
+    tournament=tour
     for (login,project) in git_list:
         club  = load_from_github(login,project,git_import)
         tournament.add_club(club)
@@ -55,6 +55,22 @@ def replay(fn):
     obs.load(args.replay)
     soccersimulator.pyglet.app.run()
 
+#
+# def run(l=None):
+#             print type(l)
+#             if args.login or args.club or args.team:
+#                 res=tournament.do_some_battles(args.only,args.nbp,args.login,args.club,args.team,args.nbgoals,args.max_time,obs)
+#                 scores = soccersimulator.SoccerTournament.build_scores(res)
+#                 print [(str(s.team),str(s)) for s in sorted(scores.values())]
+#             else:
+#                 scores=dict()
+#                 res=tournament.do_battles(args.nbgoals,args.max_time,obs)
+#                 for nbp,btl in res.items():
+#                     print '%d tournament:' % (nbp,)
+#                     scores[nbp]=soccersimulator.SoccerTournament.build_scores(btl)
+#                     print '\n'.join(["%s (%s) : %s" % (t[2],t[0],str(s))\
+#                         for t,s in sorted(scores[nbp].items())])
+#
 if __name__=="__main__":
     parse = argparse.ArgumentParser(description="Soccersimulator Main")
     parse.add_argument('-git',action='store_true',default=False,help="Import github")
@@ -67,32 +83,25 @@ if __name__=="__main__":
     parse.add_argument('-club',nargs='+',default=None,help="List of clubs to play")
     parse.add_argument('-team',nargs='+',default=None,help='List of teams to play')
     parse.add_argument('-only',action='store_true',default=False,help="If present, battles only between login|club|team passed as argument")
-    parse.add_argument('-o',action="store",default=None,help="Save the scores to file O ")
+    parse.add_argument('-score',action="store",default=None,help="Save the scores to file O ")
     parse.add_argument('-save',action="store",default=None,help="Save matches")
     parse.add_argument('-replay',action="store",default=None,help="Watch replay")
+    parse.add_argument('-watch',action="store_true",default=False,help="Watch live")
     args=parse.parse_args()
     if not args.nbp:
         args.nbp=[1,2,4]
     if args.replay:
         replay(args.replay)
     else:
-        tournament = load_tournament_git_list("Test",args.nbp,GIT_LIST_2015,max_teams=args.max_teams,git_import=args.git)
-        if args.save:
-            tournament.save_fn=args.save
+        tournament = soccersimulator.SoccerTournament("Test",[1,2,4],max_teams=args.max_teams,\
+            nbgoals=args.nbgoals,max_time=args.max_time,save_fn=args.save,save_score=args.score)
+        tournament = load_git_list(tournament,GIT_LIST_2015,git_import=args.git)
         if args.battles:
             tournament.init_battles()
-            if args.login or args.club or args.team:
-                res=tournament.do_some_battles(args.only,args.nbp,args.login,args.club,args.team,args.nbgoals,args.max_time)
-                scores = soccersimulator.SoccerTournament.build_scores(res)
-                print [(str(s.team),str(s)) for s in sorted(scores.values())]
-            else:
-                scores=dict()
-                res=tournament.do_battles(args.nbgoals,args.max_time)
-                for nbp,btl in res.items():
-                    print '%d tournament:' % (nbp,)
-                    scores[nbp]=soccersimulator.SoccerTournament.build_scores(btl)
-                    print '\n'.join(["%s (%s) : %s" % (t[2],t[0],str(s))\
-                        for t,s in sorted(scores[nbp].items())])
-            if args.o:
-                with open(args.o,"wb") as f:
-                    pickle.dump(scores,f)
+            obs=None
+            if args.watch:
+                obs = soccersimulator.PygletTournamentObserver()
+                obs.set_tournament(tournament)
+            tournament.init_tournament(only=args.only,nbp=args.nbp,login=args.login,club=args.login,team=args.team)
+            if obs:
+                soccersimulator.pyglet.app.run()

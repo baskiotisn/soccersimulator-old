@@ -3,6 +3,7 @@ from soccer_base import *
 import soccerobj
 import numpy as np
 import time
+
 from copy import deepcopy
 import strategies
 ###############################################################################
@@ -43,6 +44,12 @@ class SoccerState:
         self.team1=team1
         self.team2=team2
         self._winning_team=0
+        self.score_team1=0
+        self.score_team2=0
+        self.max_steps=0
+        self.cur_step=0
+        self.cur_battle=0
+        self.battles_count=0
         self.ball=ball
         self._width=GAME_WIDTH
         self._height=GAME_HEIGHT
@@ -59,6 +66,12 @@ class SoccerState:
         state._height=self._height
         state.actions_team1=self.actions_team1
         state.actions_team2=self.actions_team2
+        state.score_team1=self.score_team1
+        state.score_team2=self.score_team2
+        state.max_steps=self.max_steps
+        state.cur_battle=self.cur_battle
+        state.cur_step=self.cur_step
+        state.battles_count=self.battles_count
         return state
     def copy(self):
         team1=self.team1.copy()
@@ -69,6 +82,12 @@ class SoccerState:
         state._height=self._height
         state.actions_team1=self.actions_team1
         state.actions_team2=self.actions_team2
+        state.score_team1=self.score_team1
+        state.score_team2=self.score_team2
+        state.max_steps=self.max_steps
+        state.cur_battle=self.cur_battle
+        state.cur_step=self.cur_step
+        state.battles_count=self.battles_count
         return state
 
     @property
@@ -289,16 +308,15 @@ class SoccerBattle(object):
             return
         self._is_ready=False
         if not self.next_step():
-            self._ongoing=self.next_battle()
+            self.next_battle()
         self._is_ready=True
 
     def next_battle(self):
         if self.cur_battle<self.battles_count:
                 self.cur_battle+=1
                 self.start_battle()
-                return True
-        self.end_battles()
-        return False
+        else:
+            self.end_battles()
 
     def begin_battles(self,battles_count,max_steps):
         self.init_score()
@@ -319,10 +337,14 @@ class SoccerBattle(object):
         self.team1.end_battles()
         self.team2.end_battles()
         self.listeners.end_battles()
+        self._ongoing=False
 
     def start_battle(self):
         self.cur_step=0
         self.state=self.create_initial_state()
+        self.state.cur_battle=self.cur_battle
+        self.state.score_team1=self.score_team1
+        self.state.score_team2=self.score_team2
         st1 = self.state.copy()
         st2 = self.state.copy()
         st1.team1.start_battle(st1)
@@ -350,10 +372,10 @@ class SoccerBattle(object):
         for i,p in enumerate(self.state.team2.players):
             self.team2[i].strategy=p.strategy
         self.listeners.finish_battle(self.state.winning_team)
-        self._ongoing=False
 
     def next_step(self):
         if self.cur_step<self.max_steps:
+            self.state.cur_step=self.cur_step
             st1=self.state.copy()
             st2=self.state.copy()
             self.state.actions_team1=st1.team1.compute_strategies(st1,1)
@@ -413,6 +435,9 @@ class SoccerBattle(object):
             state.team2[3].set_position(rows[2],quarters[2],np.pi)
         state.ball.position.x=state.width/2
         state.ball.position.y=state.height/2
+        state.max_steps=self.max_steps
+        state.battles_count=self.battles_count
+        state.cur_battle=self.cur_battle
         return state
 
     def send_to_strat(self,*args,**kwargs):

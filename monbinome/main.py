@@ -15,11 +15,11 @@ import pickle
 
 
 
-team1=SoccerTeam("Fonceur Random")
+team1=SoccerTeam("Fonceur/Random")
 team1.add_player(SoccerPlayer("Fonceur",FonceurStrategy()))
 team1.add_player(SoccerPlayer("Random",RandomStrategy()))
 
-team2=SoccerTeam("Random Random")
+team2=SoccerTeam("Random/Random")
 team2.add_player(SoccerPlayer("Random 1",RandomStrategy()))
 team2.add_player(SoccerPlayer("Random 2",RandomStrategy()))
 
@@ -29,7 +29,7 @@ list_key_player2=['q','s']
 list_strat_player1=[RandomStrategy(),FonceurStrategy()]
 list_strat_player2=[RandomStrategy(),FonceurStrategy()]
 
-# arguemnts :  liste des touches, liste des strategies, nom du fichier, tout sauvegarder ou non
+# arguemnts :  liste des touches, liste des strategies, nom du fichier, tout sauvegarder ou non, concatener dans un meme fichier a la suite ou non
 inter_strat_player1=InteractStrategy(list_key_player1,list_strat_player1,"test_interact.pkl")
 inter_strat_player2=InteractStrategy(list_key_player2,list_strat_player2,"test_interact.pkl",True)
 team3 = SoccerTeam("Interactive")
@@ -39,7 +39,7 @@ teams =[team1,team2,team3]
 
 
 def exemple_simple():
-    battle=SoccerBattle(teams[1],teams[1])
+    battle=SoccerBattle(teams[0],teams[1])
     obs = PygletObserver()
     obs.set_soccer_battle(battle)
     pyglet.app.run()
@@ -55,14 +55,16 @@ def exemple_sauvegarde():
     battle=SoccerBattle(teams[0],teams[1])
     obs=PygletObserver()
     obs.set_soccer_battle(battle)
-    log=LogObserver("replay1.pkl")
+    ## False si on ne veut pas cumuler les sauvegardes dans un meme fichier, True sinon
+    log=LogObserver("replay1.pkl",False)
     log.set_soccer_battle(battle)
     pyglet.app.run()
     return battle
+
 def exemple_sans_interface(log=False):
     battle=SoccerBattle(teams[0],teams[1])
     if log:
-        log=LogObserver("replay1.pkl")
+        log=LogObserver("replay1.pkl",False)
         log.set_soccer_battle(battle)
     battle.run_multiple_battles(5,2000)
     return battle
@@ -89,3 +91,6 @@ def exemple_load_interact(fn):
         strat=e[3]
         player=state.team1[playerid] if teamid==1 else state.team2[playerid]
         print "team n°%d, joueur n°%d, strategie %s, joueur : %s, position %s " % (teamid,playerid,strat,player,player.position)
+
+if __name__=="__main__":
+    exemple_simple()
