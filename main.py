@@ -109,6 +109,6 @@ if __name__=="__main__":
     if args.watch:
         obs = soccersimulator.PygletTournamentObserver()
         obs.set_tournament(tournament)
-    tournament.init_tournament(only=args.only,nbp=args.nbp,login=args.login,club=args.login,team=args.team)
+    tournament.init_tournament(only=args.only,nbp=args.nbp,login=args.login,club=args.club,team=args.team)
     if obs:
         soccersimulator.pyglet.app.run()
