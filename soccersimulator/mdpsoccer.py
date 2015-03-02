@@ -326,12 +326,8 @@ class SoccerBattle(object):
         self.listeners.begin_battles(st,battles_count,max_steps)
         st=state.copy()
         self.team1.begin_battles(st,battles_count,max_steps)
-        for i,p in enumerate(st.team1.players):
-            self.team1[i].strategy=p.strategy
         st=state.copy()
         self.team2.begin_battles(st,battles_count,max_steps)
-        for i,p in enumerate(st.team2.players):
-            self.team2[i].strategy=p.strategy
 
     def end_battles(self):
         self.team1.end_battles()
@@ -347,14 +343,9 @@ class SoccerBattle(object):
         self.state.score_team2=self.score_team2
         st1 = self.state.copy()
         st2 = self.state.copy()
-        st1.team1.start_battle(st1)
-        for i,p in enumerate(st1.team1.players):
-            self.state.team1[i].strategy=p.strategy
         st = self.state.copy()
-        st2.team2.start_battle(st2)
-        for i,p in enumerate(st2.team2.players):
-            self.state.team2[i].strategy=p.strategy
-        st = self.state.copy()
+        self.state.team1.start_battle(st1)
+        self.state.team2.start_battle(st2)
         self.listeners.start_battle(st)
 
     def finish_battle(self):
