@@ -7,6 +7,8 @@ import strategies
 import string
 import traceback
 import interfaces
+import os
+import pickle
 valid_chars=frozenset("%s%s%s" % (string.ascii_letters, string.digits,"_-.()[]"))
 def clean_fn(fn):
     return ''.join(c if c in valid_chars else '' for c in fn)
@@ -290,17 +292,32 @@ class Score:
         self._list_battles=[]
     def __str__(self):
         return "%d (%d,%d,%d) - (%d,%d)" % (self.score,self.win,self.loose,self.draw,self.gf,self.ga)
+    @staticmethod
+    def format_dic_score(dic_scores):
+        for k in dic_scores:
+            if len(dic_scores[k].values())>0:
+                res=["%s (%s) : %s" % (x.team,x.login,str(x)) for x in dic_scores[k].values()]
+                print "Resultats pour le tournoi %d joueurs :" % (k,)
+                print "\n".join(res)
 
 class SoccerTournament:
-    def __init__(self,name,list_games=[1,2,4],max_teams=3,same_club=False,save_fn=None):
+    def __init__(self,name,list_games=[1,2,4],max_teams=3,same_club=False,nbgoals=None,max_time=None,save_fn=None,save_score=None):
         self.clubs=[]
         self.name=name
         self.list_games=list_games
-        self.battles=dict()
+        self.all_battles=dict()
         self.same_club=same_club
         self.max_teams=max_teams
-        self._save_fn=save_fn
-
+        self.save_fn=save_fn
+        self.save_same=True
+        self._i_tour=0
+        self.cur_nbp=0
+        self.ongoing=False
+        self.max_steps=max_time
+        self.nbgoals=nbgoals
+        self.obs=None
+        self.save_score=save_score
+        self.cur_nb_tour=0
     def add_club(self,club):
         myclub = deepcopy(club)
         for nbp in self.list_games:
@@ -314,16 +331,18 @@ class SoccerTournament:
             if len(myclub.teams[nbp])>self.max_teams:
                 myclub.teams[nbp]=myclub.teams[nbp][:self.max_teams]
         self.clubs.append(myclub)
-
+    @property
+    def _nb_tournaments(self):
+        return self.cur_nb_tour
     def get_battles(self,nbp=None,login=None,club=None,team=None,only=False):
         res =[]
         if nbp:
             if type(nbp) !=list:
                 nbp=[nbp]
             for i in nbp:
-                res+=self.battles[i]
+                res+=self.all_battles[i]
         else:
-            for p in self.battles.values():
+            for p in self.all_battles.values():
                 res+=p
         if club:
             if type(club) != list:
@@ -346,12 +365,17 @@ class SoccerTournament:
                 res=[x for x in res if x.team1.name in team and x.team2.name in team]
             else:
                 res=[x for x in res if x.team1.name in team or x.team2.name in team]
-        return res
+        true_res=dict()
+        for r in self.list_games:
+            true_res[r]=[]
+        for r in res:
+            true_res[r.team1.num_players].append(r)
+        return true_res
 
     def init_battles(self):
-        self.battles=dict()
+        self.all_battles=dict()
         for nbp in self.list_games:
-            self.battles[nbp]=list()
+            self.all_battles[nbp]=list()
 
         for club1 in range(len(self.clubs)):
             for club2 in range(club1+1 if not self.same_club else club1,len(self.clubs)):
@@ -361,41 +385,75 @@ class SoccerTournament:
                             for team2 in self.clubs[club2].teams[nbp]:
                                 b_aller = mdpsoccer.SoccerBattle(team1,team2)
                                 b_retour= mdpsoccer.SoccerBattle(team2,team1)
-                                self.battles[nbp].append(b_aller)
-                                self.battles[nbp].append(b_retour)
-    def do_battles(self,nbgoals=10,max_time=5000):
+                                self.all_battles[nbp].append(b_aller)
+                                self.all_battles[nbp].append(b_retour)
+        self.scores=dict()
+
+    def next_tournament(self):
+        self.cur_nbp+=1
+        self._i_tour=0
+        while self.cur_nbp<len(self.list_games) and \
+                (self.list_games[self.cur_nbp] not in self.battles or len(self.battles[self.list_games[self.cur_nbp]])==0):
+            self.cur_nbp+=1
+        if self.cur_nbp>=len(self.list_games):
+            self.end_tournament()
+            return
+        self.cur_nb_tour=len(self.battles[self.list_games[self.cur_nbp]])
+        print "Tournoi %d joueurs\n" % (self.list_games[self.cur_nbp],)
+
+    def play_round(self):
+        if self._i_tour>=self.cur_nb_tour:
+            self.next_tournament()
+        if not self.ongoing:
+            return
+
+        b=self.battles[self.list_games[self.cur_nbp]][self._i_tour]
+        b.battles_count=self.nbgoals
+        b.max_steps=self.max_steps
+        try:
+            if self.save_fn:
+                if self.save_same:
+                    fn=self.save_fn
+                    log=interfaces.LogObserver(fn,True)
+                else:
+                    fn="%s_%s_%s(%s)_%s(%s).pkl" % (self.save_fn,nbp,clean_fn(b.team1.name),clean_fn(b.team1.club.name),\
+                                                        clean_fn(b.team2.name),clean_fn(b.team2.club.name))
+                    log=interfaces.LogObserver(fn,False)
+                    log.set_soccer_battle(b)
+            if self.obs:
+                self.obs.set_soccer_battle(b)
+            else:
+                b.run_multiple_battles()
+                print "Game ended %d/%d: %s\n" % (self._i_tour,self.cur_nb_tour,b)
+                self._i_tour+=1
+
+        except Exception as e:
+            print "****** %s" % (e,)
+            traceback.print_exc()
+
+
+    def init_tournament(self,only=False,nbp=None,login=None,club=None,team=None):
+        res = self.get_battles(nbp,login,club,team,only)
+        self.battles=res
+        if self.save_fn and self.save_same and os.path.exists(self.save_fn):
+            os.remove(fn)
+        self.cur_nbp=-1
+        self.ongoing=True
+        self.next_tournament()
+        if not self.obs:
+            while self.ongoing:
+                self.play_round()
+
+    def end_tournament(self):
+        self.ongoing=False
         self.scores=dict()
         for nbp in self.list_games:
-            print "Tournoi %d joueurs\n" % (nbp,)
-            for i,b in enumerate(self.battles[nbp]):
-                try:
-                    if self.save_fn:
-                        fn=self.save_fn
-                        log=interfaces.LogObserver(fn,True)
-                        log.set_soccer_battle(b)
-                    b.run_multiple_battles(nbgoals,max_time)
-                except Exception as e:
-                    print "****** %s" % (e,)
-                    traceback.print_exc()
-                print "Game ended %d/%d: %s\n" % (i,len(self.battles[nbp])-1,b)
-            self.scores[nbp]=self.build_scores(self.battles[nbp])
-        return self.battles
+            if nbp in self.battles:
+                self.scores[nbp]=self.build_scores(self.battles[nbp])
+        if self.save_score:
+            with open(self.save_score,"wb") as f:
+                pickle.dump(self.scores,f,-1)
 
-    def do_some_battles(self,only=False,nbp=None,login=None,club=None,team=None,nbgoals=10,max_time=5000):
-        res = self.get_battles(nbp,login,club,team,only)
-        for i,b in enumerate(res):
-            try:
-                if self.save_fn:
-                    fn="%s_%s(%s)_%s(%s).pkl" % (self.save_fn,clean_fn(b.team1.name),clean_fn(b.team1.club.name),\
-                                                    clean_fn(b.team2.name),clean_fn(b.team2.club.name))
-                    log=interfaces.LogObserver(fn)
-                    log.set_soccer_battle(b)
-                b.run_multiple_battles(nbgoals,max_time)
-            except Exception as e:
-                print "*******  %s" % (e,)
-                traceback.print_exc()
-            print "Game ended %d/%d : %s" % (i,len(res)-1,b)
-        return res
 
     @staticmethod
     def build_scores(battles_list):
