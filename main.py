@@ -75,7 +75,6 @@ if __name__=="__main__":
     parse = argparse.ArgumentParser(description="Soccersimulator Main")
     parse.add_argument('-git',action='store_true',default=False,help="Import github")
     parse.add_argument('-nb',action="store",dest='max_teams',type=int,default=2,help="Maximum number of teams per club")
-    parse.add_argument('-b', action="store_true",dest='battles',default=False,help="Do tournament")
     parse.add_argument('-g', action="store",dest='nbgoals',type=int,default=10,help="Number of goals")
     parse.add_argument('-time', action="store",dest='max_time',type=int,default=5000,help="Max time for a goal")
     parse.add_argument('-nbp',nargs='+',type=int,help="List of type of tournament (number of player, 1,2 or 4)")
@@ -87,21 +86,26 @@ if __name__=="__main__":
     parse.add_argument('-save',action="store",default=None,help="Save matches")
     parse.add_argument('-replay',action="store",default=None,help="Watch replay")
     parse.add_argument('-watch',action="store_true",default=False,help="Watch live")
+    parse.add_argument('-result',action="store",default=None,help="Print results from score file")
     args=parse.parse_args()
     if not args.nbp:
         args.nbp=[1,2,4]
+
+    if args.result:
+        sc=pickle.load(open(args.result,"rb"))
+        print soccersimulator.Score.format_dic_score(sc)
+        sys.exit(0)
     if args.replay:
         replay(args.replay)
-    else:
-        tournament = soccersimulator.SoccerTournament("Test",[1,2,4],max_teams=args.max_teams,\
+        sys.exit(0)
+    tournament = soccersimulator.SoccerTournament("Test",[1,2,4],max_teams=args.max_teams,\
             nbgoals=args.nbgoals,max_time=args.max_time,save_fn=args.save,save_score=args.score)
-        tournament = load_git_list(tournament,GIT_LIST_2015,git_import=args.git)
-        if args.battles:
-            tournament.init_battles()
-            obs=None
-            if args.watch:
-                obs = soccersimulator.PygletTournamentObserver()
-                obs.set_tournament(tournament)
-            tournament.init_tournament(only=args.only,nbp=args.nbp,login=args.login,club=args.login,team=args.team)
-            if obs:
-                soccersimulator.pyglet.app.run()
+    tournament = load_git_list(tournament,GIT_LIST_2015,git_import=args.git)
+    tournament.init_battles()
+    obs=None
+    if args.watch:
+        obs = soccersimulator.PygletTournamentObserver()
+        obs.set_tournament(tournament)
+    tournament.init_tournament(only=args.only,nbp=args.nbp,login=args.login,club=args.login,team=args.team)
+    if obs:
+        soccersimulator.pyglet.app.run()
