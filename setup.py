@@ -4,6 +4,7 @@ import codecs
 import os
 import sys
 
+
 import soccersimulator
 
 setup(

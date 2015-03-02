@@ -435,7 +435,6 @@ class PygletReplay(PygletAbstractObserver):
         self.welcome+=[TextSprite("n -> avancement manuel",color=MSG_TEXT_COLOR,scale=0.08,position=Vector2D(gw+5,gh-30))]
         self.welcome+=[TextSprite("esc -> sortir",color=MSG_TEXT_COLOR,scale=0.08,position=Vector2D(gw+5,gh-40))]
     def play(self):
-        self._is_ready=False
         if self.ongoing:
             return
         self.ongoing=True
@@ -454,7 +453,8 @@ class PygletReplay(PygletAbstractObserver):
         if not self.ongoing:
             return
         self._soccer_battle.cur_step=0
-        #self.set_ready()
+        self.set_ready()
+
 
     def play_prev_battle(self):
         if not self.ongoing:
@@ -499,7 +499,7 @@ class PygletReplay(PygletAbstractObserver):
         #self.set_ready()
 
     def update_state(self):
-        if not self.ongoing or not self.is_ready():
+        if not self.ongoing:
             return
         if self._soccer_battle.cur_step<len(self.battles[self._soccer_battle.cur_battle]):
             self._state=self.battles[self._soccer_battle.cur_battle][self._soccer_battle.cur_step]
