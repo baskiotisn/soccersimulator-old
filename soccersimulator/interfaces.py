@@ -152,6 +152,7 @@ HUD_TEXT_COLOR=[0,200,0,255]
 MSG_TEXT_COLOR=[200,200,200,255]
 
 FPS=40.
+FPS_MOD=5.
 
 class Primitive2DGL(object):
         @staticmethod
@@ -306,7 +307,10 @@ class PygletAbstractObserver(pyglet.window.Window):
     key_handlers = {
             pyglet.window.key.ESCAPE: lambda w: w.exit(),
             pyglet.window.key.N: lambda w: w.set_ready(),
-            pyglet.window.key.M: lambda w: w.switch_manual_step()
+            pyglet.window.key.M: lambda w: w.switch_manual_step(),
+            pyglet.window.key.PLUS: lambda w: w.increase_fps(),
+            pyglet.window.key.MINUS: lambda w: w.decrease_fps(),
+            pyglet.window.key._0: lambda w: w.switch_hud_names(),
     }
 
     def __init__(self,width=1200,height=800):
@@ -320,8 +324,21 @@ class PygletAbstractObserver(pyglet.window.Window):
         self._soccer_battle=None
         self._tournament=None
         self.hud=Hud()
+        self._hud_names=True
         pyglet.clock.schedule_interval(self.update,1./self._fps)
         self.ongoing=False
+        self._list_msg=["Touches :", "p -> jouer", "","m -> switch manuel/auto","n -> avancement manuel",\
+                        "+ -> increases fps", "- -> decreases fps","esc -> sortir"]
+        self.welcome=self.get_welcome(self._list_msg)
+
+    def get_welcome(self,list_msg):
+        gw=GAME_WIDTH*0.35
+        gh=GAME_HEIGHT*0.8
+        res=[]
+        for x in list_msg:
+            res.append(TextSprite(x,color=MSG_TEXT_COLOR,scale=0.08,position=Vector2D(gw,gh)))
+            gh-=5
+        return res
 
     def set_soccer_battle(self,battle):
         self._soccer_battle=battle
@@ -375,7 +392,8 @@ class PygletAbstractObserver(pyglet.window.Window):
             self.hud.set_val(team1=team1,team2=team2,ongoing=ongoing,ibattle=ibattle,itour=itour)
             if not self._manual_step:
                 self.set_ready()
-
+    def switch_hud_names(self):
+        self._hud_names=not self._hud_names
 
     def update_state(self):
         pass
@@ -412,6 +430,15 @@ class PygletAbstractObserver(pyglet.window.Window):
         self.set_ready()
         self.close()
         pyglet.app.exit()
+    def increase_fps(self):
+        pyglet.clock.unschedule(self.update)
+        self._fps=min(self._fps+FPS_MOD,100)
+        pyglet.clock.schedule_interval(self.update,1./self._fps)
+    def decrease_fps(self):
+        pyglet.clock.unschedule(self.update)
+        self._fps=max(self._fps-FPS_MOD,1)
+        pyglet.clock.schedule_interval(self.update,1./self._fps)
+
 
 class PygletReplay(PygletAbstractObserver):
 
@@ -424,16 +451,11 @@ class PygletReplay(PygletAbstractObserver):
                                   pyglet.window.key.S: lambda w: w.play_next_battle()})
         self._tournament=None
         self._i_tour=None
-        gw=GAME_WIDTH*0.35
-        gh=GAME_HEIGHT*0.8
-        self.welcome=[TextSprite("Touches :",color=MSG_TEXT_COLOR,scale=0.08,position=Vector2D(gw,gh))]
-        self.welcome+=[TextSprite("p -> jouer",color=MSG_TEXT_COLOR,scale=0.08,position=Vector2D(gw+5,gh-5))]
-        self.welcome+=[TextSprite("a -> macth precedent",color=MSG_TEXT_COLOR,scale=0.08,position=Vector2D(gw+5,gh-10))]
-        self.welcome+=[TextSprite("z -> match suivant",color=MSG_TEXT_COLOR,scale=0.08,position=Vector2D(gw+5,gh-15))]
-        self.welcome+=[TextSprite("q -> round precedent",color=MSG_TEXT_COLOR,scale=0.08,position=Vector2D(gw+5,gh-20))]
-        self.welcome+=[TextSprite("q -> round suivant",color=MSG_TEXT_COLOR,scale=0.08,position=Vector2D(gw+5,gh-25))]
-        self.welcome+=[TextSprite("n -> avancement manuel",color=MSG_TEXT_COLOR,scale=0.08,position=Vector2D(gw+5,gh-30))]
-        self.welcome+=[TextSprite("esc -> sortir",color=MSG_TEXT_COLOR,scale=0.08,position=Vector2D(gw+5,gh-40))]
+        self._list_msg.insert(2,"a -> macth precedent")
+        self._list_msg.insert(3,"z -> match suivant")
+        self._list_msg.insert(4,"q -> round precedent")
+        self._list_msg.insert(5,"q -> round suivant")
+        self.welcome=self.get_welcome(self._list_msg)
     def play(self):
         if self.ongoing:
             return
@@ -528,13 +550,6 @@ class PygletObserver(PygletAbstractObserver):
         self.stop_thread=False
         self.key_press=None
         self.key_handlers.update({pyglet.window.key.P: lambda w: w.start_config()})
-        gw=GAME_WIDTH*0.35
-        gh=GAME_HEIGHT*0.8
-        self.welcome=[TextSprite("Touches :",color=MSG_TEXT_COLOR,scale=0.08,position=Vector2D(gw,gh))]
-        self.welcome+=[TextSprite("p -> jouer",color=MSG_TEXT_COLOR,scale=0.08,position=Vector2D(gw+5,gh-5))]
-        self.welcome+=[TextSprite("m -> switch manuel/auto",color=MSG_TEXT_COLOR,scale=0.08,position=Vector2D(gw+5,gh-10))]
-        self.welcome+=[TextSprite("n -> avancement manuel",color=MSG_TEXT_COLOR,scale=0.08,position=Vector2D(gw+5,gh-15))]
-        self.welcome+=[TextSprite("esc -> sortir",color=MSG_TEXT_COLOR,scale=0.08,position=Vector2D(gw+5,gh-40))]
     def start_config(self):
         if self._soccer_battle and not self._thread:
             self._thread=threading.Thread(target=self._soccer_battle.start_by_thread,args=(self,))
