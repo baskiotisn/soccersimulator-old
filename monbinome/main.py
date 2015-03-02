@@ -9,6 +9,7 @@ from soccersimulator import PygletObserver, LogObserver, PygletReplay
 from soccersimulator import SoccerBattle
 from soccersimulator import SoccerPlayer, SoccerTeam, InteractStrategy
 from strats import RandomStrategy, FonceurStrategy
+from apprentissage import FirstTreeStrategy
 
 import glob
 import pickle
@@ -35,8 +36,11 @@ inter_strat_player2=InteractStrategy(list_key_player2,list_strat_player2,"test_i
 team3 = SoccerTeam("Interactive")
 team3.add_player(SoccerPlayer("Inter 1",inter_strat_player1))
 team3.add_player(SoccerPlayer("Inter 2",inter_strat_player2))
-teams =[team1,team2,team3]
 
+team_tree = SoccerTeam("Team Tree")
+team_tree.add_player(SoccerPlayer("Tree 1",FirstTreeStrategy()))
+team_tree.add_player(SoccerPlayer("Tree 2",FirstTreeStrategy()))
+teams =[team1,team2,team3,team_tree]
 
 def exemple_simple():
     battle=SoccerBattle(teams[0],teams[1])
@@ -75,6 +79,7 @@ def exemple_replay():
     pyglet.app.run()
 
 
+
 def exemple_load_interact(fn):
     states=[]
     with open(fn,"rb") as f:
@@ -91,6 +96,14 @@ def exemple_load_interact(fn):
         strat=e[3]
         player=state.team1[playerid] if teamid==1 else state.team2[playerid]
         print "team n°%d, joueur n°%d, strategie %s, joueur : %s, position %s " % (teamid,playerid,strat,player,player.position)
+
+def exemple_tree():
+    battle=SoccerBattle(teams[0],teams[3])
+    obs = PygletObserver()
+    obs.set_soccer_battle(battle)
+    pyglet.app.run()
+
+
 
 if __name__=="__main__":
     exemple_simple()

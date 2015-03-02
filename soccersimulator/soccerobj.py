@@ -92,12 +92,7 @@ class SoccerPlayer(object):
     def strategy(self,strat):
         self._strategy=strat
     def compute_strategy(self,state,teamid):
-        try:
             return self.strategy.compute_strategy(state,self,teamid)
-        except Exception as e:
-        #    print "*********\n erreur pour joueur %s : %s \n *********" % (self,e,)
-        #    traceback.print_exc()
-            raise e
 
 
 ###############################################################################
