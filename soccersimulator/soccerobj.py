@@ -291,14 +291,16 @@ class Score:
         self.ga=0
         self._list_battles=[]
     def __str__(self):
-        return "%d (%d,%d,%d) - (%d,%d)" % (self.score,self.win,self.loose,self.draw,self.gf,self.ga)
+        return "\033[92m\033[34m%d\033[0m (\033[32m%d\033[0m,\033[31m%d\033[0m,\033[93m%d\033[0m) - (%d,%d)" % (self.score,self.win,self.loose,self.draw,self.gf,self.ga)
     @staticmethod
     def format_dic_score(dic_scores):
+        s=""
         for k in dic_scores:
             if len(dic_scores[k].values())>0:
-                res=["%s (%s) : %s" % (x.team,x.login,str(x)) for x in dic_scores[k].values()]
-                print "Resultats pour le tournoi %d joueurs :" % (k,)
-                print "\n".join(res)
+                res=["\033[92m%s\033[0m (\033[93m%s\033[m) : %s" % (x.team,x.login,str(x)) for x in sorted(dic_scores[k].values(),reverse=True)]
+                s+="\033[93m***\033[0m \033[95m Resultats pour le tournoi \033[92m%d joueurs\033[0m : \033[93m***\33[0m \n\t%s\n\n" %\
+                            (k,"\n\t".join(res))
+        return s
 
 class SoccerTournament:
     def __init__(self,name,list_games=[1,2,4],max_teams=3,same_club=False,nbgoals=None,max_time=None,save_fn=None,save_score=None):
