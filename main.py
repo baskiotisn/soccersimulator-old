@@ -14,9 +14,8 @@ GIT_LIST_2015=[("Benlog","Soccer-AI"),("SebXIII","Projet"),("andrenasturas","2I0
             ("mariene","projet_foot"),("Leynad","ProjetFoot"),("ArezkiSky","Projet-soccer-2I013"),("Maumiz","ProjetSoccer"),\
             ("kabylemak","soccerproject"),("timotheb","projet"),("orangemango","orange-soccer-team")]
 
-def load_from_github(login,project,git_import=True):
+def load_from_github(login,project):
     # clone le depot github correspondant
-    if git_import:
         print "Debut import github"
         if not os.path.exists(TARGET_PATH):
             os.mkdir(TARGET_PATH)
@@ -26,54 +25,47 @@ def load_from_github(login,project,git_import=True):
         os.system("git clone https://github.com/%s/%s %s " % (login,project,tmp_path))
         print "Fin de l'import github"
 
+def load_directory(tournament,path):
+    path=os.path.realpath(path)
+    logins=[login for login in os.listdir(path) if os.path.isdir(os.path.join(path,login))]
+    for l in logins:
+        tournament.add_club(load_club_directory(path,l))
+    return tournament
+
+def load_club_directory(path,login=None):
+    projet=path
+    if not login:
+        projet,login=os.path.split(os.path.realpath(path))
+
     club = soccersimulator.SoccerClub(login)
     try:
-        sys.path.insert(0, TARGET_PATH)
+        sys.path.insert(0,projet)
         mymod = __import__(login)
         del sys.path[0]
-    except Exception, e:
+    except Exception,e:
         print "\033[93m Erreur pour \033[94m%s : \033[91m%s \033[0m" % (club.login,str(e))
         print sys.exc_info()[0]
         club._exceptions.append(("Module %s " % (login,),e))
         return club
-
     print "Equipe de \033[92m%s\033[0m charge, \033[92m%s equipes\033[0m" % (login,len(mymod.teams))
     club.add_teams(mymod.teams)
     if hasattr(mymod,"name"):
         club.name=mymod.name
     return club
 
-def load_git_list(tour,git_list,git_import=True):
-    tournament=tour
-    for (login,project) in git_list:
-        club  = load_from_github(login,project,git_import)
-        tournament.add_club(club)
-    return tournament
+
+
+
 
 def replay(fn):
     obs=soccersimulator.PygletReplay()
     obs.load(args.replay)
     soccersimulator.pyglet.app.run()
 
-#
-# def run(l=None):
-#             print type(l)
-#             if args.login or args.club or args.team:
-#                 res=tournament.do_some_battles(args.only,args.nbp,args.login,args.club,args.team,args.nbgoals,args.max_time,obs)
-#                 scores = soccersimulator.SoccerTournament.build_scores(res)
-#                 print [(str(s.team),str(s)) for s in sorted(scores.values())]
-#             else:
-#                 scores=dict()
-#                 res=tournament.do_battles(args.nbgoals,args.max_time,obs)
-#                 for nbp,btl in res.items():
-#                     print '%d tournament:' % (nbp,)
-#                     scores[nbp]=soccersimulator.SoccerTournament.build_scores(btl)
-#                     print '\n'.join(["%s (%s) : %s" % (t[2],t[0],str(s))\
-#                         for t,s in sorted(scores[nbp].items())])
-#
 if __name__=="__main__":
     parse = argparse.ArgumentParser(description="Soccersimulator Main")
-    parse.add_argument('-git',action='store_true',default=False,help="Import github")
+    parse.add_argument('-path',action='store',nargs="*",default=None,help="Import directory DIR")
+    parse.add_argument('-git',action='store',default=None,help="Import github to directory")
     parse.add_argument('-nb',action="store",dest='max_teams',type=int,default=2,help="Maximum number of teams per club")
     parse.add_argument('-g', action="store",dest='nbgoals',type=int,default=10,help="Number of goals")
     parse.add_argument('-time', action="store",dest='max_time',type=int,default=5000,help="Max time for a goal")
@@ -88,8 +80,6 @@ if __name__=="__main__":
     parse.add_argument('-watch',action="store_true",default=False,help="Watch live")
     parse.add_argument('-result',action="store",default=None,help="Print results from score file")
     args=parse.parse_args()
-    if not args.nbp:
-        args.nbp=[1,2,4]
 
     if args.result:
         sc=pickle.load(open(args.result,"rb"))
@@ -98,9 +88,22 @@ if __name__=="__main__":
     if args.replay:
         replay(args.replay)
         sys.exit(0)
+
+    if args.git:
+        TARGET_PATH=args.git
+    if not args.path:
+        args.path=TARGET_PATH
+    if type(args.path)!=list:
+        args.path=[args.path]
+    if not args.nbp:
+        args.nbp=[1,2,4]
     tournament = soccersimulator.SoccerTournament("Test",[1,2,4],max_teams=args.max_teams,\
             nbgoals=args.nbgoals,max_time=args.max_time,save_fn=args.save,save_score=args.score)
-    tournament = load_git_list(tournament,GIT_LIST_2015,git_import=args.git)
+    if args.git:
+        for (login,project) in GIT_LIST_2015:
+            load_from_github(login,project)
+    for path in args.path:
+        tournament = load_directory(tournament,path)
     tournament.init_battles()
     obs=None
     if args.watch:
