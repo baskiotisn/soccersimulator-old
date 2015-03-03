@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-<
 from soccer_base import *
 import soccerobj
@@ -264,6 +265,8 @@ class SoccerBattle(object):
         self._is_ready=False
         self._ongoing=False
         self._father=None
+        self.obs=None
+        self._speed=False
 
     def copy_safe(self):
         battle=SoccerBattle(self.team1.copy_safe(),self.team2.copy_safe(),self.battles_count,self.max_steps)
@@ -283,9 +286,10 @@ class SoccerBattle(object):
     def num_players(self):
         return self.team1.num_players
 
-    def run_multiple_battles(self,battles_count=None,max_steps=None):
+    def run_multiple_battles(self,battles_count=None,max_steps=None,father=None):
         self._is_ready=False
         self._ongoing=True
+        self._father=father
         if battles_count:
             self.battles_count=battles_count
         if max_steps:
@@ -294,19 +298,25 @@ class SoccerBattle(object):
         self.next_battle()
         self._is_ready=True
         if not self._father:
-            while self._ongoing:
-                self.update()
+            self.run_until_end()
 
-    def start_by_thread(self,father,battles_count=None,max_steps=None):
-        self._father=father
-        self._is_ready=False
-        self._ongoing=True
-        self.run_multiple_battles(battles_count,max_steps)
+    def run_until_end(self):
+        while self._ongoing:
+            self.update()
+
+    def run_until_next(self):
+        while self.next_step():
+            pass
+        self.next_battle()
 
     def update(self):
         if not self._is_ready or not self._ongoing:
             return
         self._is_ready=False
+        if self._speed:
+            self.run_until_next()
+            self._is_ready=True
+            return
         if not self.next_step():
             self.next_battle()
         self._is_ready=True
@@ -328,13 +338,15 @@ class SoccerBattle(object):
         self.team1.begin_battles(st,battles_count,max_steps)
         st=state.copy()
         self.team2.begin_battles(st,battles_count,max_steps)
-
+        if self.obs:
+            self.obs.begin_battles(battles_count,max_steps)
     def end_battles(self):
         self.team1.end_battles()
         self.team2.end_battles()
         self.listeners.end_battles()
         self._ongoing=False
-
+        if self.obs:
+            self.obs.end_battles()
     def start_battle(self):
         self.cur_step=0
         self.state=self.create_initial_state()
@@ -347,7 +359,8 @@ class SoccerBattle(object):
         self.state.team1.start_battle(st1)
         self.state.team2.start_battle(st2)
         self.listeners.start_battle(st)
-
+        if self.obs:
+            self.obs.start_battle()
     def finish_battle(self):
         if self.state.winning_team==0:
             self.state.team1.finish_battle(0)
@@ -363,7 +376,8 @@ class SoccerBattle(object):
         for i,p in enumerate(self.state.team2.players):
             self.team2[i].strategy=p.strategy
         self.listeners.finish_battle(self.state.winning_team)
-
+        if self.obs:
+            self.obs.finish_battle(self.state.winning_team)
     def next_step(self):
         if self.cur_step<self.max_steps:
             self.state.cur_step=self.cur_step
