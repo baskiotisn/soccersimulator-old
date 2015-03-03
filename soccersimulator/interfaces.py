@@ -255,7 +255,7 @@ class PlayerSprite(ObjectSprite):
             self.add_primitives(Primitive2DGL.create_player(self.color))
             self._text=TextSprite(self.name,[int(x*255) for x in self.color]+[200],SCALE_NAME)
         def _get_object(self):
-            return self._obs._state.get_team(self.team)[self.name]
+            return self._obs.get_state().get_team(self.team)[self.name]
         def draw(self):
             ObjectSprite.draw(self)
             speed=self._get_object().speed
@@ -271,10 +271,10 @@ class BallSprite(ObjectSprite):
             self._obs=obs
             self.add_primitives(Primitive2DGL.create_ball())
         def _get_object(self):
-            return self._obs._state.ball
+            return self._obs.get_state().ball
         def draw(self):
             ObjectSprite.draw(self)
-            speed=self._obs._state.ball.speed
+            speed=self._obs.get_state().ball.speed
             v=VectorSprite(self.position,speed.angle)
             v.add_primitives(Primitive2DGL.create_vector(speed.norm*10,get_color_scale(speed.norm/maxBallAcceleration)))
             v.draw()
@@ -311,11 +311,12 @@ class PygletAbstractObserver(pyglet.window.Window):
             pyglet.window.key.PLUS: lambda w: w.increase_fps(),
             pyglet.window.key.MINUS: lambda w: w.decrease_fps(),
             pyglet.window.key._0: lambda w: w.switch_hud_names(),
+            pyglet.window.key.NUM_ADD : lambda w : w.increase_fps(),
+            pyglet.window.key.NUM_SUBTRACT : lambda w: w.decrease_fps()
     }
 
     def __init__(self,width=1200,height=800):
         pyglet.window.Window.__init__(self,width=width,height=height,resizable=True)
-        self._state=None
         self.focus()
         self.set_size(width,height)
         self._is_ready=False
@@ -323,6 +324,7 @@ class PygletAbstractObserver(pyglet.window.Window):
         self._fps=FPS
         self._soccer_battle=None
         self._tournament=None
+        self._nb_tournaments=0
         self.hud=Hud()
         self._hud_names=True
         pyglet.clock.schedule_interval(self.update,1./self._fps)
@@ -330,7 +332,7 @@ class PygletAbstractObserver(pyglet.window.Window):
         self._list_msg=["Touches :", "p -> jouer", "","m -> switch manuel/auto","n -> avancement manuel",\
                         "+ -> increases fps", "- -> decreases fps","esc -> sortir"]
         self.welcome=self.get_welcome(self._list_msg)
-
+        self._save_fps=0
     def get_welcome(self,list_msg):
         gw=GAME_WIDTH*0.35
         gh=GAME_HEIGHT*0.8
@@ -342,6 +344,7 @@ class PygletAbstractObserver(pyglet.window.Window):
 
     def set_soccer_battle(self,battle):
         self._soccer_battle=battle
+        battle.obs=self
         self.create_drawable_objects()
     def create_drawable_objects(self):
         self.focus()
@@ -355,16 +358,16 @@ class PygletAbstractObserver(pyglet.window.Window):
     def render(self):
         try:
             if self.ongoing:
-                if self.is_ready():
-                    if hasattr(self,"_state") and self._state:
+                #if self.is_ready():
+                    if  self.get_state():
                         gl.glClear(gl.GL_COLOR_BUFFER_BIT)
                         self._background.draw()
                         for d in self._sprites.values():
                             d.draw()
-                        self.hud.draw()
             else:
                 for d in self.welcome:
                     d.draw()
+            self.hud.draw()
         except Exception,e:
             time.sleep(0.0001)
             print e,traceback.print_exc()
@@ -378,18 +381,18 @@ class PygletAbstractObserver(pyglet.window.Window):
             return pyglet.event.EVENT_HANDLED
 
     def update(self,dt):
+        team1=team2=ongoing=ibattle=itour=""
+        if self._soccer_battle and self.get_state():
+            team1="%s - %s" % (self._soccer_battle.team1.name, self.get_state().score_team1)
+            team2="%s - %s" % (self._soccer_battle.team2.name,self.get_state().score_team2)
+            ongoing="Round : %d/%d" % (self.get_state().cur_step,self.get_state().max_steps)
+            ibattle="Battle : %d/%d" % (self.get_state().cur_battle,self.get_state().battles_count)
+        if self._tournament and self._nb_tournaments>0:
+            itour="Tournament : %d/%d" %(self._i_tour+1,self._nb_tournaments)
+        self.hud.set_val(team1=team1,team2=team2,ongoing=ongoing,ibattle=ibattle,itour=itour)
         if self.ongoing and self._is_ready:
             self._is_ready=False
             self.update_state()
-            team1=team2=ongoing=ibattle=itour=""
-            if self._soccer_battle and self._state:
-                team1="%s - %s" % (self._soccer_battle.team1.name, self._state.score_team1)
-                team2="%s - %s" % (self._soccer_battle.team2.name,self._state.score_team2)
-                ongoing="Round : %d/%d" % (self._state.cur_step,self._state.max_steps)
-                ibattle="Battle : %d/%d" % (self._state.cur_battle,self._state.battles_count)
-            if self._tournament:
-                itour="Tournament : %d/%d" %(self._i_tour+1,self._nb_tournaments)
-            self.hud.set_val(team1=team1,team2=team2,ongoing=ongoing,ibattle=ibattle,itour=itour)
             if not self._manual_step:
                 self.set_ready()
     def switch_hud_names(self):
@@ -430,15 +433,25 @@ class PygletAbstractObserver(pyglet.window.Window):
         self.set_ready()
         self.close()
         pyglet.app.exit()
-    def increase_fps(self):
+
+    def start_battle(self):
+        pass
+    def end_battles(self):
+        pass
+    def begin_battles(self,battles_count,max_steps):
+        pass
+    def finish_battle(self,win):
+        pass
+    def set_fps(self):
         pyglet.clock.unschedule(self.update)
-        self._fps=min(self._fps+FPS_MOD,100)
-        pyglet.clock.schedule_interval(self.update,1./self._fps)
-    def decrease_fps(self):
-        pyglet.clock.unschedule(self.update)
-        self._fps=max(self._fps-FPS_MOD,1)
         pyglet.clock.schedule_interval(self.update,1./self._fps)
 
+    def increase_fps(self):
+        self._fps=min(self._fps+FPS_MOD,100)
+        self.set_fps()
+    def decrease_fps(self):
+        self._fps=max(self._fps-FPS_MOD,1)
+        self.set_fps()
 
 class PygletReplay(PygletAbstractObserver):
 
@@ -456,6 +469,12 @@ class PygletReplay(PygletAbstractObserver):
         self._list_msg.insert(4,"q -> round precedent")
         self._list_msg.insert(5,"q -> round suivant")
         self.welcome=self.get_welcome(self._list_msg)
+        self._fps=None
+    def get_state(self):
+        if self._soccer_battle and self._soccer_battle.cur_battle<len(self.battles)\
+            and self._soccer_battle.cur_step<len(self.battles[self._soccer_battle.cur_battle]):
+            return self.battles[self._soccer_battle.cur_battle][self._soccer_battle.cur_step]
+        return None
     def play(self):
         if self.ongoing:
             return
@@ -482,7 +501,6 @@ class PygletReplay(PygletAbstractObserver):
         if not self.ongoing:
             return
         self._is_ready=False
-        self._state=None
         if self._soccer_battle.cur_battle>0:
             self._soccer_battle.cur_battle-=1
             self.play_battle()
@@ -492,7 +510,6 @@ class PygletReplay(PygletAbstractObserver):
         if not self.ongoing:
             return
         self._is_ready=False
-        self._state=None
         if self._soccer_battle.cur_battle<len(self.battles)-1:
             self._soccer_battle.cur_battle+=1
             self.play_battle()
@@ -504,7 +521,6 @@ class PygletReplay(PygletAbstractObserver):
         if not self.ongoing:
             return
         self._is_ready=False
-        self._state=None
         if self._i_tour>0:
             self._i_tour-=1
             self.play_round()
@@ -514,7 +530,6 @@ class PygletReplay(PygletAbstractObserver):
         if not self.ongoing:
             return
         self._is_ready=False
-        self._state=None
         if self._i_tour<(self._nb_tournaments-1):
             self._i_tour+=1
             self.play_round()
@@ -524,7 +539,6 @@ class PygletReplay(PygletAbstractObserver):
         if not self.ongoing:
             return
         if self._soccer_battle.cur_step<len(self.battles[self._soccer_battle.cur_battle]):
-            self._state=self.battles[self._soccer_battle.cur_battle][self._soccer_battle.cur_step]
             self._soccer_battle.cur_step+=1
         else:
             self.play_next_battle()
@@ -546,15 +560,11 @@ class PygletObserver(PygletAbstractObserver):
 
     def __init__(self,width=1200,height=800):
         super(PygletObserver,self).__init__(width,height)
-        self._thread=None
-        self.stop_thread=False
         self.key_press=None
         self.key_handlers.update({pyglet.window.key.P: lambda w: w.start_config()})
     def start_config(self):
-        if self._soccer_battle and not self._thread:
-            self._thread=threading.Thread(target=self._soccer_battle.start_by_thread,args=(self,))
-            self._thread.daemon=False
-            self._thread.start()
+        if self._soccer_battle and not self.ongoing:
+            self._soccer_battle.run_multiple_battles(father=self)
             self.ongoing=True
             self.set_ready()
     def on_key_press(self,symbol, modifiers):
@@ -567,26 +577,23 @@ class PygletObserver(PygletAbstractObserver):
             self.key_press=k
             if self._soccer_battle:
                 self._soccer_battle.send_to_strat(self.key_press)
+    def get_state(self):
+        if self._soccer_battle:
+            return self._soccer_battle.state
+        return None
+
     def update_state(self):
         if not self.ongoing:
             return
         self._soccer_battle.update()
-        self._state=self._soccer_battle.state
         if not self._soccer_battle._ongoing:
-            self.end_battles()
-    def end_battles(self):
+            self.end_my_battles()
+    def end_my_battles(self):
         self.ongoing=False
-        self._thread=None
-        self._state=None
         self._soccer_battle=None
     def exit(self):
         self.ongoing=False
-        self.stop_thread=True
-        if self._thread:
-            time.sleep(0.1)
         self._soccer_battle=None
-        self._thread=None
-        self._state=None
         super(PygletObserver,self).exit()
 
 
@@ -594,14 +601,19 @@ class PygletTournamentObserver(PygletObserver):
     def __init__(self,width=1200,height=800):
         super(PygletTournamentObserver,self).__init__(width,height)
         self.key_handlers[pyglet.window.key.P]= lambda w: w.start_tournament()
-
+        self.key_handlers[pyglet.window.key.N]= lambda w: w.skip_battles()
     def set_tournament(self,tour):
         self._tournament=tour
         self._tournament.obs=self
         self._i_tour=0
 
+    def skip_battles(self):
+        _thread=threading.Thread(target=self._soccer_battle.run_until_end)
+        _thread.start()
+        #self._soccer_battle._speed=True
+
     def start_tournament(self):
-        if not self._thread and not self.ongoing:
+        if not self.ongoing:
             self._tournament.play_round()
             self.start_config()
     def on_key_press(self,symbol, modifiers):
@@ -618,26 +630,18 @@ class PygletTournamentObserver(PygletObserver):
         if not self.ongoing:
             return
         self._soccer_battle.update()
-        self._state=self._soccer_battle.state
         self._i_tour=self._tournament._i_tour
         self._nb_tournaments=self._tournament.cur_nb_tour
         if not self._soccer_battle._ongoing:
             self._is_ready=False
             self._tournament._i_tour+=1
-            self._thread=None
-            self._state=None
             self._soccer_battle=None
             self._tournament.play_round()
+            self.ongoing=False
             self.start_config()
         self.ongoing=self._tournament.ongoing
 
-
     def exit(self):
         self.ongoing=False
-        self.stop_thread=True
-        if self._thread:
-            time.sleep(0.1)
         self._soccer_battle=None
-        self._thread=None
-        self._state=None
         super(PygletObserver,self).exit()
