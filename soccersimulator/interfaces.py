@@ -319,6 +319,7 @@ class PygletAbstractObserver(pyglet.window.Window):
         pyglet.window.Window.__init__(self,width=width,height=height,resizable=True)
         self.focus()
         self.set_size(width,height)
+        self.clear()
         self._is_ready=False
         self._manual_step=False
         self._fps=FPS
@@ -400,8 +401,6 @@ class PygletAbstractObserver(pyglet.window.Window):
 
     def update_state(self):
         pass
-    def end_battles(self):
-        pass
     def switch_manual_step(self):
         self._manual_step = not self._manual_step
         if not self._manual_step:
@@ -447,7 +446,8 @@ class PygletAbstractObserver(pyglet.window.Window):
         pyglet.clock.schedule_interval(self.update,1./self._fps)
 
     def increase_fps(self):
-        self._fps=min(self._fps+FPS_MOD,100)
+        self._fps=min(self._fps+FPS_MOD,300)
+        print self._fps
         self.set_fps()
     def decrease_fps(self):
         self._fps=max(self._fps-FPS_MOD,1)
@@ -601,17 +601,21 @@ class PygletTournamentObserver(PygletObserver):
     def __init__(self,width=1200,height=800):
         super(PygletTournamentObserver,self).__init__(width,height)
         self.key_handlers[pyglet.window.key.P]= lambda w: w.start_tournament()
-        self.key_handlers[pyglet.window.key.N]= lambda w: w.skip_battles()
+        self.key_handlers[pyglet.window.key.ENTER]= lambda w: w.skip_battles()
+        self._list_msg.insert(3,"Enter -> round suivant")
+        self.welcome=self.get_welcome(self._list_msg)
+
     def set_tournament(self,tour):
         self._tournament=tour
         self._tournament.obs=self
         self._i_tour=0
 
     def skip_battles(self):
-        _thread=threading.Thread(target=self._soccer_battle.run_until_end)
-        _thread.start()
-        #self._soccer_battle._speed=True
-
+        if self.ongoing:
+            _thread=threading.Thread(target=self._soccer_battle.run_until_end)
+            _thread.start()
+        else:
+            self.start_tournament()
     def start_tournament(self):
         if not self.ongoing:
             self._tournament.play_round()
@@ -644,4 +648,4 @@ class PygletTournamentObserver(PygletObserver):
     def exit(self):
         self.ongoing=False
         self._soccer_battle=None
-        super(PygletObserver,self).exit()
+        super(PygletTournamentObserver,self).exit()

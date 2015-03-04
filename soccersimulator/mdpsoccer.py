@@ -2,11 +2,12 @@
 # -*- coding: utf-8 -*-<
 from soccer_base import *
 import soccerobj
-import numpy as np
+import math
 import time
 
 from copy import deepcopy
 import strategies
+
 ###############################################################################
 # SoccerAction
 ###############################################################################
@@ -102,7 +103,7 @@ class SoccerState:
         return self._height
     @property
     def diagonal(self):
-        return np.sqrt(self.width**2+self.height**2)
+        return math.sqrt(self.width**2+self.height**2)
     def get_team(self,teamid):
         if teamid==1:
             return self.team1
@@ -121,7 +122,7 @@ class SoccerState:
         raise Exception("get_goal_center : team demandé != 1 ou 2 : %s" % i)
 
     def is_y_inside_goal(self,y):
-        return np.abs(y-(self.height/2))<GAME_GOAL_HEIGHT/2
+        return abs(y-(self.height/2))<GAME_GOAL_HEIGHT/2
 
 
     """ implementation """
@@ -129,67 +130,46 @@ class SoccerState:
     def apply_action(self,player,action):
         if not action:
             return
-        player.dec_num_before_shoot()
         action_shoot=action.shoot.copy()
         action_acceleration=action.acceleration.copy()
-        if (player.position.distance(self.ball.position)<(PLAYER_RADIUS+BALL_RADIUS)):
+
+        if action_shoot.norm>maxPlayerShoot:
+            action_shoot.norm=maxPlayerShoot
+        player.dec_num_before_shoot()
+        if action_shoot.norm!=0:
             if (player.get_num_before_shoot()>0):
                 action_shoot=Vector2D()
             else:
                 player.init_num_before_shoot()
-            if action_shoot.norm>maxPlayerShoot:
-                action_shoot.product(1.0/action_shoot.norm * maxPlayerShoot)
-            if action_shoot.norm>0:
-                player_speed=Vector2D.create_polar(player.angle,player.speed)
-                dot_p=action_shoot.dot(player_speed)/(action_shoot.norm*player_speed.norm)
-                if player_speed.norm==0:
-                    fake_speed=Vector2D.create_polar(player.angle,1)
-                    dot_p=action_shoot.dot(fake_speed)/(action_shoot.norm*fake_speed.norm)
-                dot_p+=2
-                dot_p/=3.
-                if (dot_p<0.5):
-                    dot_p=0.5
-                action_shoot.product(dot_p)
-                action_shoot+=player_speed
-                norm=action_shoot.norm
-                angle=np.arctan2(action_shoot.y,action_shoot.x)
-                angle+=(np.random.rand()*2.-1)*shootRandomAngle/180.*np.pi
-                action_shoot=Vector2D.create_polar(angle,norm)
-                self.sum_of_shoots+=action_shoot
 
-        norm = action_acceleration.norm
-        if norm>maxPlayerAcceleration:
-            action_acceleration.product(1./norm*maxPlayerAcceleration)
-        frotte=Vector2D.create_polar(player.angle,-player.speed)
-        frotte.product(playerBrackConstant)
-        resultante=frotte
-        resultante+=action_acceleration
-        new_speed=Vector2D.create_polar(player.angle,player.speed)
-        new_speed+=resultante
-        new_player_speed=new_speed.norm
-        if (new_player_speed>0):
-            new_player_angle=np.arctan2(new_speed.y,new_speed.x)
-            if new_player_speed>maxPlayerSpeed:
-                new_player_speed=maxPlayerSpeed
+        dist_to_ball=player.position.distance(self.ball.position)
 
-            new_player_position=player.position.copy()
-            new_player_position+=new_speed
+        if action_shoot.norm>0 and dist_to_ball<(PLAYER_RADIUS+BALL_RADIUS):
+            angle_factor=1.-abs(math.cos(player.angle-action_shoot.angle))
+            dist_factor=1.-dist_to_ball/(PLAYER_RADIUS+BALL_RADIUS)
+            action_shoot.scale(1-angle_factor*0.25-dist_factor*0.25)
+            action_shoot.angle=action_shoot.angle+(random.random()*(angle_factor+dist_factor)/2.)*shootRandomAngle*math.pi/2.
+            self.sum_of_shoots+=action_shoot
 
-            if new_player_position.x<0:
-                new_player_position.x=0
-                new_player_speed=0
-            if new_player_position.y<0:
-                new_player_position.y=0
-                new_player_speed=0
-            if new_player_position.x>self.width:
-                new_player_position.x=self.width
-                new_player_speed=0
-            if new_player_position.y>self.height:
-                new_player_position.y=self.height
-                new_player_speed=0
-            player.angle=new_player_angle
-            player.speed=new_player_speed
-            player.position=new_player_position
+        if action_acceleration.norm>maxPlayerAcceleration:
+            action_acceleration.norm=maxPlayerAcceleration
+        player.speed*=(1-playerBrackConstant)
+        player.speed_v=player.speed_v+action_acceleration
+        if player.speed>maxPlayerSpeed:
+            player.speed=maxPlayerSpeed
+        player.position=player.position+player.speed_v
+        if player.position.x<0:
+            player.position.x=0
+            player.speed=0
+        if player.position.y<0:
+            player.position.y=0
+            player.speed=0
+        if player.position.x>self.width:
+            player.position.x=self.width
+            player.speed=0
+        if player.position.y>self.height:
+            player.position.y=self.height
+            player.speed=0
 
     def apply_actions(self):
         self.sum_of_shoots=Vector2D()
@@ -198,47 +178,30 @@ class SoccerState:
         for i,action in enumerate(self.actions_team2):
             self.apply_action(self.team2[i],action)
 
-        frotte_ball_square=self.ball.speed.copy()
-        coeff_frottement_square=ballBrakeSquare*(self.ball.speed.norm**2)
-        frotte_ball_square.product(-coeff_frottement_square)
-        frotte_ball_constant=self.ball.speed.copy()
-        coeff_frottement_constant=ballBrakeConstant
-        frotte_ball_constant.product(-coeff_frottement_constant)
+        self.ball.speed.norm+=-ballBrakeSquare*self.ball.speed.norm**2-ballBrakeConstant*self.ball.speed.norm
+        self.ball.speed+=self.sum_of_shoots
+        if (self.ball.speed.norm>maxBallAcceleration):
+            self.ball.speed.norm=maxBallAcceleration
+        self.ball.position+=self.ball.speed
 
-        new_ball_speed=self.ball.speed
-        no=self.sum_of_shoots.norm
-        if no!=0:
-            if (no>maxBallAcceleration):
-                self.sum_of_shoots.product(1./no*maxBallAcceleration)
-            new_ball_speed=self.sum_of_shoots.copy()
-        new_ball_speed+=frotte_ball_square
-        new_ball_speed+=frotte_ball_constant
-
-        self.ball.speed=new_ball_speed
-        new_ball_position=self.ball.position
-        new_ball_position+=new_ball_speed
-        self.ball.position=new_ball_position
-
-        pos=self.ball.position
-        speed=self.ball.speed
-        if pos.x<0:
-            if self.is_y_inside_goal(pos.y):
+        if self.ball.position.x<0:
+            if self.is_y_inside_goal(self.ball.position.y):
                 self._winning_team=2
             else:
-                self.ball.position=Vector2D(-pos.x,pos.y)
-                self.ball.speed=Vector2D(-speed.x,speed.y)
-        if pos.y<0:
-            self.ball.position=Vector2D(pos.x,-pos.y)
-            self.ball.speed=Vector2D(speed.x,-speed.y)
-        if pos.x>self.width:
-            if self.is_y_inside_goal(pos.y):
+                self.ball.position.x=-self.ball.position.x
+                self.ball.speed.x=-self.ball.speed.x
+        if self.ball.position.y<0:
+            self.ball.position.y=self.ball.position.y
+            self.ball.speed.y=-self.ball.speed.y
+        if self.ball.position.x>self.width:
+            if self.is_y_inside_goal(self.ball.position.y):
                 self._winning_team=1
             else:
-                self.ball.position=Vector2D(self.width-(pos.x-self.width),pos.y)
-                self.ball.speed=Vector2D(-speed.x,speed.y)
-        if pos.y>self.height:
-            self.ball.position=Vector2D(pos.x,self.height-(pos.y-self.height))
-            self.ball.speed=Vector2D(speed.x,-speed.y)
+                self.ball.position.x=2*self.width-self.ball.position.x
+                self.ball.speed.x=-self.ball.speed.x
+        if self.ball.position.y>self.height:
+            self.ball.position.y=2*self.height-self.ball.position.y
+            self.ball.speed.y=-self.ball.speed.y
     def __str__(self):
         return str(self.ball)+"\n"+ str(self.team1)+"\n"+str(self.team2)
 
@@ -301,13 +264,17 @@ class SoccerBattle(object):
             self.run_until_end()
 
     def run_until_end(self):
-        while self._ongoing:
+        while 1:
+            if not self._ongoing:
+                break
             self.update()
-
+            time.sleep(0.000001)
     def run_until_next(self):
-        while self.next_step():
-            pass
+        while 1:
+            if not self.next_step():
+                break
         self.next_battle()
+        self._is_ready=True
 
     def update(self):
         if not self._is_ready or not self._ongoing:
@@ -379,6 +346,8 @@ class SoccerBattle(object):
         if self.obs:
             self.obs.finish_battle(self.state.winning_team)
     def next_step(self):
+        if self.state.winning_team!=0:
+            return False
         if self.cur_step<self.max_steps:
             self.state.cur_step=self.cur_step
             st1=self.state.copy()
@@ -413,7 +382,7 @@ class SoccerBattle(object):
         if self.state.winning_team==0:
             self.score_draw+=1
         self.finish_battle()
-        return False
+        return True
 
     def create_initial_state(self):
         state=SoccerState(self.team1.copy(),self.team2.copy(),soccerobj.SoccerBall())
@@ -423,23 +392,24 @@ class SoccerBattle(object):
             raise Exception("create_initial_state : Nombre de joueurs incorrects %d" % self.num_players)
         if self.num_players==1:
             state.team1[0].set_position(rows[0],quarters[1],0)
-            state.team2[0].set_position(rows[3],quarters[1],np.pi)
+            state.team2[0].set_position(rows[3],quarters[1],math.pi)
         if self.num_players==2:
             state.team1[0].set_position(rows[0],quarters[0],0)
             state.team1[1].set_position(rows[0],quarters[2],0)
-            state.team2[0].set_position(rows[3],quarters[0],np.pi)
-            state.team2[1].set_position(rows[3],quarters[2],np.pi)
+            state.team2[0].set_position(rows[3],quarters[0],math.pi)
+            state.team2[1].set_position(rows[3],quarters[2],math.pi)
         if self.num_players==4:
             state.team1[0].set_position(rows[0],quarters[0],0)
             state.team1[1].set_position(rows[0],quarters[2],0)
             state.team1[2].set_position(rows[1],quarters[0],0)
             state.team1[3].set_position(rows[1],quarters[2],0)
-            state.team2[0].set_position(rows[3],quarters[0],np.pi)
-            state.team2[1].set_position(rows[3],quarters[2],np.pi)
-            state.team2[2].set_position(rows[2],quarters[0],np.pi)
-            state.team2[3].set_position(rows[2],quarters[2],np.pi)
+            state.team2[0].set_position(rows[3],quarters[0],math.pi)
+            state.team2[1].set_position(rows[3],quarters[2],math.pi)
+            state.team2[2].set_position(rows[2],quarters[0],math.pi)
+            state.team2[3].set_position(rows[2],quarters[2],math.pi)
         state.ball.position.x=state.width/2
         state.ball.position.y=state.height/2
+        state.ball.speed=Vector2D()
         state.max_steps=self.max_steps
         state.battles_count=self.battles_count
         state.cur_battle=self.cur_battle
@@ -509,7 +479,7 @@ class SoccerEvents(Events):
             try:
                 e+=getattr(f,str(e))
             except:
-                print "no %s supported by this interface" %e
+                    print "no %s supported by this interface" %e
         return self
     def __isub__(self, f):
         for e in self:
