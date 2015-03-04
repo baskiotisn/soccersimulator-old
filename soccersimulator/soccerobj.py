@@ -40,17 +40,41 @@ class SoccerPlayer(object):
     def __init__(self,name,strat=None):
         self._name=name
         self.position=Vector2D()
-        self.angle=0.
-        self.speed=0.
+        self._angle=0.
+        self._speed=0.
         self._num_before_shoot=0
         self._strategy=None
         self.id =-1
-        if strat:
-            self._strategy=deepcopy(strat)
-        #self._strategy=strat
+        self._speed_v=Vector2D()
+        #if strat:
+        #    self._strategy=deepcopy(strat)
+        self._strategy=strat
     def __eq__(self,other):
-        return self.id == other.id and (self.position == other.position) and (self.angle == other.angle) and (self.speed == other.speed)\
-                and (self._num_before_shoot == other._num_before_shoot)
+        return self.id == other.id
+
+    @property
+    def angle(self):
+        return self._angle
+    @angle.setter
+    def angle(self,a):
+        self._angle=a
+        self._speed_v.angle=a
+    @property
+    def speed(self):
+        return self._speed
+    @speed.setter
+    def speed(self,s):
+        self._speed=s
+        self._speed_v.norm=s
+    @property
+    def speed_v(self):
+        return self._speed_v.copy()
+    @speed_v.setter
+    def speed_v(self,v):
+        self._speed_v=v.copy()
+        self._angle=self._speed_v.angle
+        self._speed=self._speed_v.norm
+
     def copy_safe(self):
         #player=deepcopy(self)
         player=SoccerPlayer(self.name,self._strategy)
@@ -63,7 +87,8 @@ class SoccerPlayer(object):
         return player
     def copy(self):
         player=self.copy_safe()
-        player._strategy=deepcopy(self._strategy)
+        #player._strategy=deepcopy(self._strategy)
+        player._strategy=self._strategy
         return player
     @property
     def name(self):

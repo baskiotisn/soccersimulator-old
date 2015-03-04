@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-import numpy as np
 from copy import deepcopy
+import math
+import random
 ###############################################################################
 # Constantes
 ###############################################################################
@@ -11,15 +12,21 @@ GAME_HEIGHT=90
 GAME_GOAL_HEIGHT=20
 PLAYER_RADIUS=1.
 BALL_RADIUS=0.65
-maxPlayerAcceleration=0.1
-playerBrackConstant=0.1
-ballBrakeSquare=0.01
-ballBrakeConstant=0.08
+
 maxPlayerSpeed=1.
-maxBallAcceleration=5.
-maxPlayerShoot=2.
-shootRandomAngle=0.1
+maxPlayerAcceleration=0.2
+playerBrackConstant=0.1
 nbWithoutShoot=10
+maxPlayerShoot=3.
+
+maxBallAcceleration=5.
+shootRandomAngle=0.1
+
+#ballBrakeConstant=0.04
+#ballBrakeSquare=0.002
+ballBrakeConstant=0.08
+ballBrakeSquare=0.01
+
 MAX_GAME_STEPS=5000
 NB_MAX_EXCEPTIONS=1
 
@@ -35,14 +42,19 @@ class Vector2D(object):
     >>> w=v+v
     """
 
-    def __init__(self,x=0,y=0):
+    def __init__(self,x=0,y=0,angle=None,norm=None):
         """ create a vector
         :param x: 1st coordinate
         :param y: 2nd coordiante
         :type x: float
         :type y: float
         """
-        self._v=np.array((float(x),float(y)))
+        if angle and norm:
+            self.x=math.cos(angle)*norm
+            self.y=math.sin(angle)*norm
+            return
+        self.x=float(x)
+        self.y=float(y)
     def copy(self):
         return Vector2D(self.x,self.y)
     def __str__(self):
@@ -50,7 +62,7 @@ class Vector2D(object):
     def __repr__(self):
         return "Vector2D%s" % self.__str__()
     def dot(self,v):
-        return self.v.dot(v.v)
+        return self.x*v.x+self.y*v.y
     def __eq__(self,other):
         return (other.x==self.x) and (other.y==self.y)
     def __add__(self,other):
@@ -71,27 +83,20 @@ class Vector2D(object):
         the 1st coordinate
         :type: float
         """
-        return self._v[0]
+        return self._x
     @x.setter
     def x(self,value):
-        self._v[0]=float(value)
+        self._x=float(value)
     @property
     def y(self):
         """
         the 2nd coordinate
         :type: float
         """
-        return self._v[1]
+        return self._y
     @y.setter
     def y(self,value):
-        self._v[1]=float(value)
-    @property
-    def v(self):
-        """
-        the associated numpy vector
-        :type: numpy.array
-        """
-        return np.array(self._v)
+        self._y=float(value)
     def random(self,low=0.,high=1.):
         """
         Randomize the vector
@@ -99,30 +104,49 @@ class Vector2D(object):
         :param float high: high limit
         :rtype: None
         """
-        self._v=(np.random.rand()*(high-low)+low,np.random.rand()*(high-low)+low)
+        self.x=random.random()*(high-low)+low
+        self.y=random.random()*(high-low)+low
     @property
     def norm(self):
         """
         the norm of the vector
         :rtype: float
         """
-        return np.sqrt(self.v.dot(self.v))
+        return math.sqrt(self.dot(self))
+    @norm.setter
+    def norm(self,n):
+        if self.norm!=0:
+            self.normalize()
+            self.scale(n)
     @property
     def angle(self):
         """
         the angle of the vector
         """
-        return np.arctan2(self.y,self.x)
+        return math.atan2(self.y,self.x)
+    @angle.setter
+    def angle(self,a):
+        n=self.norm
+        self.x=math.cos(a)*n
+        self.y=math.sin(a)*n
     def distance(self,v):
-        return np.sqrt((v-self).dot(v-self))
+        return (v-self).norm
     def normalize(self):
         """
         Normalize the vector
         """
         n=self.norm
         if n!=0:
-            self._v=self._v/n
+            self.x=self.x/n
+            self.y=self.y/n
     def product(self,a):
+        """
+        Multiply the vector by float a
+        :param float a: scale factor
+        """
+        self.x*=a
+        self.y*=a
+    def scale(self,a):
         """
         Multiply the vector by float a
         :param float a: scale factor
@@ -139,7 +163,7 @@ class Vector2D(object):
         :return: a vector
         :rtype: Vector2D
         """
-        return Vector2D(np.cos(angle)*norm,np.sin(angle)*norm)
+        return Vector2D(angle=angle,norm=norm)
     @staticmethod
     def create_random(low=0,high=1.):
         """
