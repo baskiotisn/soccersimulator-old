@@ -78,7 +78,8 @@ class LogObserver(AbstractSoccerObserver):
     def finish_battle(self,winner):
         pass
     def end_battles(self):
-            self.write()
+        self.write()
+        self.battles=[]
     def write(self,fn=None):
         if not fn:
             fn = self.filename
@@ -103,6 +104,7 @@ class LogObserver(AbstractSoccerObserver):
                 #     f.write("**************\n")
                 # f.write("-------------\n")
                     #pickle.dump({"soccer_battle":self._soccer_battle.copy(True),"battles":self.battles},f)
+
     @staticmethod
     def read(fn):
         block=[]
