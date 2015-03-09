@@ -23,12 +23,11 @@ def load_from_github(login,project,path=TARGET_PATH):
         shutil.rmtree(tmp_path, ignore_errors=True)
         os.mkdir(tmp_path)
         os.system("git clone https://github.com/%s/%s %s " % (login,project,tmp_path))
-        check_date(login,project,path)
         print "Fin de l'import github"
 
 def check_date(login,project,path=TARGET_PATH):
     print login
-    os.system("git --git-dir=%s/.git log -1 --format=%%cd" % (os.path.join(path,login),))
+    os.system("git --git-dir=%s/.git log  --format=%%cr|uniq" % (os.path.join(path,login),))
 
 
 def load_directory(tournament,path):
