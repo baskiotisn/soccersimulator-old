@@ -118,7 +118,11 @@ class LogObserver(AbstractSoccerObserver):
         with open(fn,"rb") as f:
             for zl in f:
                 if zl.startswith("----"):
-                    line=zlib.decompress(zread.strip())
+                    try:
+                        line=zlib.decompress(zread)
+                    except:
+                        import pdb
+                        pdb.set_trace()
                     for l in line.split("\n"):
                         if l =="":
                             continue
