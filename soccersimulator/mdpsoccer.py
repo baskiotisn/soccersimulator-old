@@ -139,10 +139,10 @@ class SoccerState:
         dist_to_ball=player.position.distance(self.ball.position)
 
         if action_shoot.norm>0 and dist_to_ball<(self.cst["PLAYER_RADIUS"]+self.cst["BALL_RADIUS"]):
-            angle_factor=1.-abs(math.cos(player.angle-action_shoot.angle))
+            angle_factor=1.-abs(math.cos((player.angle-action_shoot.angle)/2.))
             dist_factor=1.-dist_to_ball/(self.cst["PLAYER_RADIUS"]+self.cst["BALL_RADIUS"])
             action_shoot.scale(1-angle_factor*0.25-dist_factor*0.25)
-            action_shoot.angle=action_shoot.angle+(random.random()*(angle_factor+dist_factor)/2.)*self.cst["shootRandomAngle"]*math.pi/2.
+            action_shoot.angle=action_shoot.angle+((2*random.random()-1.)*(angle_factor+dist_factor)/2.)*self.cst["shootRandomAngle"]*math.pi/2.
             self.sum_of_shoots+=action_shoot
 
         if action_acceleration.norm>self.cst["maxPlayerAcceleration"]:
