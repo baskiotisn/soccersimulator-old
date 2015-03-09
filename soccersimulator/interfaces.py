@@ -7,12 +7,15 @@ import pyglet
 from pyglet import gl
 import numpy as np
 from soccer_base import *
+
 import threading
 import time
+import mdpsoccer
 import soccerobj
 import strategies
 import pickle
 import traceback
+import zlib
 #soccer_base  cste
 
 
@@ -62,30 +65,88 @@ class LogObserver(AbstractSoccerObserver):
         self.autosave=autosave
         self.filename=filename
         self._append=append
+        self._soccer_battle=None
+        self.battles=[]
     def set_soccer_battle(self,soccer_battle):
         super(LogObserver,self).set_soccer_battle(soccer_battle)
-        self._soccer_battle=soccer_battle.copy_safe()
     def begin_battles(self,state,count,max_step):
-        self._soccer_battle.count=count
-        self._soccer_battle.max_step=max_step
-        self._soccer_battle.battles=[]
+        self.battles=[]
     def start_battle(self,state):
-        if len(self._soccer_battle.battles)>0:
-            print len(self._soccer_battle.battles[-1]),len(self._soccer_battle.battles)
-        self._soccer_battle.battles.append([])
+        self.battles.append([])
     def update_battle(self,state,step):
-        self._soccer_battle.battles[-1].append(state.copy_safe())
+        self.battles[-1].append(state)
     def finish_battle(self,winner):
         pass
     def end_battles(self):
-        if self.autosave:
             self.write()
     def write(self,fn=None):
         if not fn:
             fn = self.filename
         if self.filename:
-            with file(self.filename,"a" if self._append else "wb") as f:
-                pickle.dump(self._soccer_battle,f,-1)
+            #battles=[ [(s["team1.name"],s["team2.name"],s["team1",s]) for s in b] for b in battles]
+            ## nbp team1_name team2_name count max_steps
+            ##
+            res=""
+            for b in self.battles:
+                for s in b:
+                    res+="%s" % s.to_blockfile()
+                    res+="++++++++++++\n"
+                res+="**************\n"
+            cres=zlib.compress(res,9)
+            with open(self.filename,"a" if self._append else "wb") as f:
+                f.write(cres+"\n")
+                f.write("-------------\n")
+                # for b in self.battles:
+                #     for s in b:
+                #         f.write("%s" % s.to_blockfile())
+                #         f.write("++++++++++++\n")
+                #     f.write("**************\n")
+                # f.write("-------------\n")
+                    #pickle.dump({"soccer_battle":self._soccer_battle.copy(True),"battles":self.battles},f)
+    @staticmethod
+    def read(fn):
+        block=[]
+        states=[]
+        battles=[]
+        tour=[]
+        soc_battle=None
+        team1=None
+        team2=None
+        zread=""
+        with open(fn,"rb") as f:
+            for zl in f:
+                if zl.startswith("----"):
+                    line=zlib.decompress(zread.strip())
+                    for l in line.split("\n"):
+                        if l =="":
+                            continue
+                        if l.startswith("++++"):
+                            states.append(block)
+                            #mdpsoccer.SoccerState.from_blockfile(block,team1,team2))
+                            block=[]
+                            if soc_battle==None:
+                                st=mdpsoccer.SoccerState.from_blockfile(states[-1])
+                                team1=st.team1
+                                team2=st.team2
+                                soc_battle=mdpsoccer.SoccerBattle(team1,team2,st.battles_count,st.max_steps)
+                                soc_battle.battles_block=[]
+                            continue
+                        if l.startswith("****"):
+                            soc_battle.battles_block.append(states)
+                            states=[]
+                            continue
+                        block.append(l)
+                    #if l.startswith("----"):
+                    tour.append(soc_battle)
+                    soc_battle=None
+                    team1=None
+                    team2=None
+                    zread=""
+                    #continue
+                else:
+                    zread+=zl
+        return tour
+
 
 
 class ObjectSprite:
@@ -244,6 +305,10 @@ class TextSprite:
             time.sleep(0.0001)
             print e,traceback.print_exc()
 
+        except Exception,e:
+            time.sleep(0.0001)
+            print e,traceback.print_exc()
+
 class PlayerSprite(ObjectSprite):
         def __init__(self,name,team,obs):
             ObjectSprite.__init__(self,name)
@@ -260,6 +325,11 @@ class PlayerSprite(ObjectSprite):
             ObjectSprite.draw(self)
             speed=self._get_object().speed
             self._text.position=self.position
+            #strat=TextSprite(self._get_object().strategy.name,[int(x*255) for x in self.color]+[200],SCALE_NAME)
+            #strat.position=self.position
+            #strat.position.y-=2
+            #strat.draw()
+            #self._text._label.text=self._get_object().name+"("+self._get_object().strategy.name+")"
             self._text.draw()
             v=VectorSprite(self.position,self.angle)
             v.add_primitives(Primitive2DGL.create_vector(speed*10,get_color_scale(speed/maxPlayerSpeed)))
@@ -467,13 +537,13 @@ class PygletReplay(PygletAbstractObserver):
         self._list_msg.insert(2,"a -> macth precedent")
         self._list_msg.insert(3,"z -> match suivant")
         self._list_msg.insert(4,"q -> round precedent")
-        self._list_msg.insert(5,"q -> round suivant")
+        self._list_msg.insert(5,"s -> round suivant")
         self.welcome=self.get_welcome(self._list_msg)
-        self._fps=None
+
     def get_state(self):
-        if self._soccer_battle and self._soccer_battle.cur_battle<len(self.battles)\
-            and self._soccer_battle.cur_step<len(self.battles[self._soccer_battle.cur_battle]):
-            return self.battles[self._soccer_battle.cur_battle][self._soccer_battle.cur_step]
+        if self._soccer_battle and self._soccer_battle.cur_battle<len(self._soccer_battle.battles)\
+            and self._soccer_battle.cur_step<len(self._soccer_battle.battles[self._soccer_battle.cur_battle]):
+            return self._soccer_battle.battles[self._soccer_battle.cur_battle][self._soccer_battle.cur_step]
         return None
     def play(self):
         if self.ongoing:
@@ -486,8 +556,11 @@ class PygletReplay(PygletAbstractObserver):
             return
         if self._i_tour>=len(self._tournament):
             return
-        self.battles=self._tournament[self._i_tour].battles
+        #self.set_soccer_battle(mdpsoccer.SoccerBattle.from_save(self._tournament[self._i_tour]))
+        #self.battles=self._tournament[self._i_tour]["battles"]
         self.set_soccer_battle(self._tournament[self._i_tour])
+        self._soccer_battle.battles=[ [mdpsoccer.SoccerState.from_blockfile(s) for s in b] for b in self._soccer_battle.battles_block]
+        #self._soccer_battle.battles=[[mdpsoccer.SoccerState.from_blockfile()]]
         self.play_battle()
 
     def play_battle(self):
@@ -504,13 +577,14 @@ class PygletReplay(PygletAbstractObserver):
         if self._soccer_battle.cur_battle>0:
             self._soccer_battle.cur_battle-=1
             self.play_battle()
-        #self.set_ready()
+        else:
+            self.set_ready()
 
     def play_next_battle(self):
         if not self.ongoing:
             return
         self._is_ready=False
-        if self._soccer_battle.cur_battle<len(self.battles)-1:
+        if self._soccer_battle.cur_battle<len(self._soccer_battle.battles)-1:
             self._soccer_battle.cur_battle+=1
             self.play_battle()
         else:
@@ -524,7 +598,8 @@ class PygletReplay(PygletAbstractObserver):
         if self._i_tour>0:
             self._i_tour-=1
             self.play_round()
-        #self.set_ready()
+        else:
+            self.set_ready()
 
     def play_next_tour(self):
         if not self.ongoing:
@@ -533,26 +608,28 @@ class PygletReplay(PygletAbstractObserver):
         if self._i_tour<(self._nb_tournaments-1):
             self._i_tour+=1
             self.play_round()
-        #self.set_ready()
+        else:
+            self.set_ready()
 
     def update_state(self):
         if not self.ongoing:
-            return
-        if self._soccer_battle.cur_step<len(self.battles[self._soccer_battle.cur_battle]):
+            return55
+        if self._soccer_battle.cur_step<len(self._soccer_battle.battles[self._soccer_battle.cur_battle]):
             self._soccer_battle.cur_step+=1
         else:
             self.play_next_battle()
 
     def load(self,fn):
-        tour=[]
-        with open(fn,"rb") as f:
-            while 1:
-                try:
-                    tour.append(pickle.load(f))
-                except EOFError:
-                    break
-        self._tournament=tour
-        self._nb_tournaments=len(tour)
+        #tour=[]
+        #with open(fn,"rb") as f:
+        #    while 1:
+        #        try:
+        #            tour.append(pickle.load(f))
+        #        except EOFError:
+        #            break
+        #self._tournament=tour
+        self._tournament=LogObserver.read(fn)
+        self._nb_tournaments=len(self._tournament)
         self._i_tour=0
         print "Fin Load de %d matchs" %(self._nb_tournaments,)
 

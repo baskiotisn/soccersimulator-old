@@ -43,11 +43,8 @@ class SoccerPlayer(object):
         self._angle=0.
         self._speed=0.
         self._num_before_shoot=0
-        self._strategy=None
         self.id =-1
         self._speed_v=Vector2D()
-        #if strat:
-        #    self._strategy=deepcopy(strat)
         self._strategy=strat
     def __eq__(self,other):
         return self.id == other.id
@@ -75,20 +72,15 @@ class SoccerPlayer(object):
         self._angle=self._speed_v.angle
         self._speed=self._speed_v.norm
 
-    def copy_safe(self):
-        #player=deepcopy(self)
+    def copy(self,safe=False):
         player=SoccerPlayer(self.name,self._strategy)
-        player.position=self.position
+        player.position=self.position.copy()
         player.angle=self.angle
         player.speed=self.speed
         player._num_before_shoot=self._num_before_shoot
         player.id=self.id
-        player._strategy=strategies.SoccerStrategy(self.strategy.name)
-        return player
-    def copy(self):
-        player=self.copy_safe()
-        #player._strategy=deepcopy(self._strategy)
-        player._strategy=self._strategy
+        if safe:
+            player._strategy=strategies.SoccerStrategy(self.strategy.name)
         return player
     @property
     def name(self):
@@ -139,17 +131,13 @@ class SoccerTeam:
             except ValueError:
                 return False
         return True
-    def copy_safe(self):
+    def copy(self,safe=False):
         team = SoccerTeam(self.name)
         for p in self:
-            team.add_player(p.copy_safe())
-        return team
-    def copy(self):
-        team = SoccerTeam(self.name)
-        for p in self:
-            team.add_player(p.copy())
+            team.add_player(p.copy(safe))
         team._exceptions=list(self._exceptions)
-        team._club=self._club
+        if not safe:
+            team._club=self._club
         return team
     @property
     def club(self):
@@ -437,14 +425,16 @@ class SoccerTournament:
                 if self.save_same:
                     fn=self.save_fn
                     log=interfaces.LogObserver(fn,True)
+
                 else:
                     fn="%s_%s_%s(%s)_%s(%s).pkl" % (self.save_fn,nbp,clean_fn(b.team1.name),clean_fn(b.team1.club.name),\
                                                         clean_fn(b.team2.name),clean_fn(b.team2.club.name))
                     log=interfaces.LogObserver(fn,False)
-                    log.set_soccer_battle(b)
+                log.set_soccer_battle(b)
             if self.obs:
                 self.obs.set_soccer_battle(b)
             else:
+                print "Game %d/%d : %s\n" %(self._i_tour,self.cur_nb_tour,b)
                 b.run_multiple_battles()
                 print "Game ended %d/%d: %s\n" % (self._i_tour,self.cur_nb_tour,b)
                 self._i_tour+=1
@@ -458,7 +448,7 @@ class SoccerTournament:
         res = self.get_battles(nbp,login,club,team,only)
         self.battles=res
         if self.save_fn and self.save_same and os.path.exists(self.save_fn):
-            os.remove(fn)
+            os.remove(self.save_fn)
         self.cur_nbp=-1
         self.ongoing=True
         self.next_tournament()
