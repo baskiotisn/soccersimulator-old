@@ -27,7 +27,7 @@ shootRandomAngle=0.1
 ballBrakeConstant=0.08
 ballBrakeSquare=0.01
 
-MAX_GAME_STEPS=5000
+MAX_GAME_STEPS=2000
 NB_MAX_EXCEPTIONS=1
 
 class Vector2D(object):
@@ -146,6 +146,8 @@ class Vector2D(object):
         """
         self.x*=a
         self.y*=a
+    def scalar(self,a):
+        return self.x*a.x+self.y*a.y
     def scale(self,a):
         """
         Multiply the vector by float a

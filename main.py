@@ -59,8 +59,11 @@ def load_club_directory(path,login=None):
     return club
 
 
-
-
+CFG_0=dict({"ballBrakeConstant":0.08, "ballBrakeSquare":0.01})
+CFG_1=dict({"ballBrakeConstant":0.05, "ballBrakeSquare":0.0025})
+CFG_2=dict({"ballBrakeConstant":0.05, "ballBrakeSquare":0.0016})
+CFG_3=dict({"ballBrakeConstant":0.04, "ballBrakeSquare":0.0016})
+CFG=[CFG_0,CFG_1,CFG_2,CFG_3]
 
 def replay(fn):
     obs=soccersimulator.PygletReplay()
@@ -69,6 +72,7 @@ def replay(fn):
 
 if __name__=="__main__":
     parse = argparse.ArgumentParser(description="Soccersimulator Main")
+    parse.add_argument('-config',action='store',default=1,type=int,help="Choose config (1,2)")
     parse.add_argument('-path',action='store',nargs="*",default=None,help="Import directory DIR")
     parse.add_argument('-git',action='store_true',default=False,help="Import github to directory")
     parse.add_argument('-nobattle',action="store_true",default=False,help="Do not play the games")
@@ -104,8 +108,9 @@ if __name__=="__main__":
         args.path=[args.path]
     if not args.nbp:
         args.nbp=[1,2,4]
+    cfg=CFG[min(args.config,len(CFG)-1)]
     tournament = soccersimulator.SoccerTournament("Test",[1,2,4],max_teams=args.max_teams,\
-            nbgoals=args.nbgoals,max_time=args.max_time,save_fn=args.save,save_score=args.score)
+            nbgoals=args.nbgoals,max_time=args.max_time,save_fn=args.save,save_score=args.score,cst=cfg)
     git_path=args.path[0]
     if args.git:
         for (login,project) in GIT_LIST_2015:
