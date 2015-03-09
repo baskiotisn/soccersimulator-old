@@ -91,15 +91,12 @@ class SoccerPlayer(object):
     def dec_num_before_shoot(self):
         if self._num_before_shoot>0:
             self._num_before_shoot-=1
-    def init_num_before_shoot(self):
-        self._num_before_shoot=nbWithoutShoot
+    def init_num_before_shoot(self,v):
+        self._num_before_shoot=v
     def get_num_before_shoot(self):
         return self._num_before_shoot
     def __str__(self):
         return self._name
-    @property
-    def normed_position(self):
-        return Vector2D(self.position.x/SoccerState.GAME_WIDTH, self.position.y/SoccerState.GAME_HEIGHT)
     def can_shoot(self):
         return self.get_num_before_shoot()<1
     @property
@@ -311,7 +308,7 @@ class Score:
         return s
 
 class SoccerTournament:
-    def __init__(self,name,list_games=[1,2,4],max_teams=3,same_club=False,nbgoals=None,max_time=None,save_fn=None,save_score=None):
+    def __init__(self,name,list_games=[1,2,4],max_teams=3,same_club=False,nbgoals=None,max_time=None,save_fn=None,save_score=None,cst=dict()):
         self.clubs=[]
         self.name=name
         self.list_games=list_games
@@ -328,6 +325,7 @@ class SoccerTournament:
         self.obs=None
         self.save_score=save_score
         self.cur_nb_tour=0
+        self.cst=dict(cst)
     def add_club(self,club):
         myclub = deepcopy(club)
         for nbp in self.list_games:
@@ -393,8 +391,8 @@ class SoccerTournament:
                     if nbp in self.clubs[club1].teams and nbp in self.clubs[club2].teams:
                         for team1 in self.clubs[club1].teams[nbp]:
                             for team2 in self.clubs[club2].teams[nbp]:
-                                b_aller = mdpsoccer.SoccerBattle(team1,team2)
-                                b_retour= mdpsoccer.SoccerBattle(team2,team1)
+                                b_aller = mdpsoccer.SoccerBattle(team1,team2,cst=self.cst)
+                                b_retour= mdpsoccer.SoccerBattle(team2,team1,cst=self.cst)
                                 self.all_battles[nbp].append(b_aller)
                                 self.all_battles[nbp].append(b_retour)
         self.scores=dict()

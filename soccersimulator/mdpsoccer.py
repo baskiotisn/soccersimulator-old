@@ -43,8 +43,8 @@ class SoccerAction(object):
 
 class SoccerState:
     to_save=["_winning_team","score_team1","score_team2","max_steps","cur_step",\
-            "cur_battle","battles_count","_width","_height"]
-    def __init__(self,team1,team2,ball):
+            "cur_battle","battles_count"]
+    def __init__(self,team1,team2,ball,cst=dict()):
         self.team1=team1
         self.team2=team2
         self._winning_team=0
@@ -55,16 +55,23 @@ class SoccerState:
         self.cur_battle=0
         self.battles_count=0
         self.ball=ball
-        self._width=GAME_WIDTH
-        self._height=GAME_HEIGHT
         self.actions_team1=None
         self.actions_team2=None
+
+        self.cst={"GAME_WIDTH":GAME_WIDTH,"GAME_HEIGHT":GAME_HEIGHT,
+                "GAME_GOAL_HEIGHT":GAME_GOAL_HEIGHT,"PLAYER_RADIUS":PLAYER_RADIUS,
+                "BALL_RADIUS":BALL_RADIUS,"maxPlayerSpeed":maxPlayerSpeed,
+                "maxPlayerAcceleration":maxPlayerAcceleration,"playerBrackConstant":playerBrackConstant,
+                "nbWithoutShoot":nbWithoutShoot,"maxPlayerShoot":maxPlayerShoot,
+                "maxBallAcceleration":maxBallAcceleration,"shootRandomAngle":shootRandomAngle,
+                "ballBrakeSquare":ballBrakeSquare,"ballBrakeConstant":ballBrakeConstant}
+        self.cst.update(cst)
     def __eq__(self,other):
         return (self.team1 == other.team1) and (self.team2 == other.team2) and (self.ball == other.ball)
     def copy(self,safe=False):
         team1=self.team1.copy(safe)
         team2=self.team2.copy(safe)
-        state=SoccerState(team1,team2,self.ball.copy())
+        state=SoccerState(team1,team2,self.ball.copy(),self.cst)
         for k in self.to_save:
             state.__dict__[k]=self.__dict__[k]
         if self.actions_team1:
@@ -78,10 +85,16 @@ class SoccerState:
         return self._winning_team
     @property
     def width(self):
-        return self._width
+        return self.cst["GAME_WIDTH"]
     @property
     def height(self):
-        return self._height
+        return self.cst["GAME_HEIGHT"]
+    @height.setter
+    def height(self,v):
+        self.cst["GAME_HEIGHT"]=v
+    @width.setter
+    def width(self,v):
+        self.cst["GAME_WIDTH"]=v
     @property
     def diagonal(self):
         return math.sqrt(self.width**2+self.height**2)
@@ -103,7 +116,7 @@ class SoccerState:
         raise Exception("get_goal_center : team demandé != 1 ou 2 : %s" % i)
 
     def is_y_inside_goal(self,y):
-        return abs(y-(self.height/2))<GAME_GOAL_HEIGHT/2
+        return abs(y-(self.height/2))<self.cst["GAME_GOAL_HEIGHT"]/2
 
 
     """ implementation """
@@ -114,30 +127,30 @@ class SoccerState:
         action_shoot=action.shoot.copy()
         action_acceleration=action.acceleration.copy()
 
-        if action_shoot.norm>maxPlayerShoot:
-            action_shoot.norm=maxPlayerShoot
+        if action_shoot.norm>self.cst["maxPlayerShoot"]:
+            action_shoot.norm=self.cst["maxPlayerShoot"]
         player.dec_num_before_shoot()
         if action_shoot.norm!=0:
             if (player.get_num_before_shoot()>0):
                 action_shoot=Vector2D()
             else:
-                player.init_num_before_shoot()
+                player.init_num_before_shoot(self.cst["nbWithoutShoot"])
 
         dist_to_ball=player.position.distance(self.ball.position)
 
-        if action_shoot.norm>0 and dist_to_ball<(PLAYER_RADIUS+BALL_RADIUS):
+        if action_shoot.norm>0 and dist_to_ball<(self.cst["PLAYER_RADIUS"]+self.cst["BALL_RADIUS"]):
             angle_factor=1.-abs(math.cos(player.angle-action_shoot.angle))
-            dist_factor=1.-dist_to_ball/(PLAYER_RADIUS+BALL_RADIUS)
+            dist_factor=1.-dist_to_ball/(self.cst["PLAYER_RADIUS"]+self.cst["BALL_RADIUS"])
             action_shoot.scale(1-angle_factor*0.25-dist_factor*0.25)
-            action_shoot.angle=action_shoot.angle+(random.random()*(angle_factor+dist_factor)/2.)*shootRandomAngle*math.pi/2.
+            action_shoot.angle=action_shoot.angle+(random.random()*(angle_factor+dist_factor)/2.)*self.cst["shootRandomAngle"]*math.pi/2.
             self.sum_of_shoots+=action_shoot
 
-        if action_acceleration.norm>maxPlayerAcceleration:
-            action_acceleration.norm=maxPlayerAcceleration
-        player.speed*=(1-playerBrackConstant)
+        if action_acceleration.norm>self.cst["maxPlayerAcceleration"]:
+            action_acceleration.norm=self.cst["maxPlayerAcceleration"]
+        player.speed*=(1-self.cst["playerBrackConstant"])
         player.speed_v=player.speed_v+action_acceleration
-        if player.speed>maxPlayerSpeed:
-            player.speed=maxPlayerSpeed
+        if player.speed>self.cst["maxPlayerSpeed"]:
+            player.speed=self.cst["maxPlayerSpeed"]
         player.position=player.position+player.speed_v
         if player.position.x<0:
             player.position.x=0
@@ -159,10 +172,21 @@ class SoccerState:
         for i,action in enumerate(self.actions_team2):
             self.apply_action(self.team2[i],action)
 
-        self.ball.speed.norm+=-ballBrakeSquare*self.ball.speed.norm**2-ballBrakeConstant*self.ball.speed.norm
-        self.ball.speed+=self.sum_of_shoots
-        if (self.ball.speed.norm>maxBallAcceleration):
-            self.ball.speed.norm=maxBallAcceleration
+        self.ball.speed.norm+=-self.cst["ballBrakeSquare"]*self.ball.speed.norm**2-self.cst["ballBrakeConstant"]*self.ball.speed.norm
+        ## decomposition selon le vecteur unitaire de ball.speed
+        snorm=self.sum_of_shoots.norm
+        if snorm>0:
+            u_s=self.sum_of_shoots.copy()
+            u_s.normalize()
+            u_t=Vector2D(-u_s.y,u_s.x)
+            speed_abs=abs(self.ball.speed.scalar(u_s))
+            speed_ortho=self.ball.speed.scalar(u_t)
+            speed=Vector2D(speed_abs*u_s.x-speed_ortho*u_s.y,speed_abs*u_s.y+speed_ortho*u_s.x)
+            speed+=self.sum_of_shoots
+            self.ball.speed=speed
+
+        if (self.ball.speed.norm>self.cst["maxBallAcceleration"]):
+            self.ball.speed.norm=self.cst["maxBallAcceleration"]
         self.ball.position+=self.ball.speed
 
         if self.ball.position.x<0:
@@ -172,7 +196,7 @@ class SoccerState:
                 self.ball.position.x=-self.ball.position.x
                 self.ball.speed.x=-self.ball.speed.x
         if self.ball.position.y<0:
-            self.ball.position.y=self.ball.position.y
+            self.ball.position.y=-self.ball.position.y
             self.ball.speed.y=-self.ball.speed.y
         if self.ball.position.x>self.width:
             if self.is_y_inside_goal(self.ball.position.y):
@@ -241,7 +265,7 @@ class SoccerState:
         nbp=len(self.team1.players)
         res="|".join(str(x) for x in [nbp,self.team1.name,self.team2.name,\
                 self._winning_team,self.score_team1,self.score_team2,self.max_steps,self.cur_step,\
-                self.cur_battle,self.battles_count,self._width,self._height])
+                self.cur_battle,self.battles_count,self.width,self.height])
         res+="\n"
         res+="|".join("%.3f"  % (x,) for x in [self.ball.position.x,self.ball.position.y,self.ball.speed.x,self.ball.speed.y])
         res+="\n"
@@ -298,7 +322,7 @@ class SoccerState:
         state.actions_team2=[SoccerAction(Vector2D(float(a[0]),float(a[1])),\
                     Vector2D(float(a[2]),float(a[3]))) for a in a2_list]
         state._winning_team,state.score_team1,state.score_team2,state.max_steps,\
-            state.cur_step,state.cur_battle,state.battles_count,state._width,state._height=[int(x) for x in info[3:]]
+            state.cur_step,state.cur_battle,state.battles_count,state.width,state.height=[int(x) for x in info[3:]]
         return state
 
 
@@ -308,7 +332,7 @@ class SoccerState:
 ###############################################################################
 
 class SoccerBattle(object):
-    def __init__(self,team1,team2,battles_count=1,max_steps=MAX_GAME_STEPS):
+    def __init__(self,team1,team2,battles_count=1,max_steps=2000,cst=dict()):
         if team1.num_players != team2.num_players:
             raise Exception("Les equipes n'ont pas le meme nombre de joueurs")
         self.team1=team1
@@ -327,6 +351,7 @@ class SoccerBattle(object):
         self._father=None
         self.obs=None
         self._speed=False
+        self.cst=dict(cst)
 
     @staticmethod
     def from_save(dic):
@@ -487,7 +512,7 @@ class SoccerBattle(object):
         return True
 
     def create_initial_state(self):
-        state=SoccerState(self.team1.copy(),self.team2.copy(),soccerobj.SoccerBall())
+        state=SoccerState(self.team1.copy(),self.team2.copy(),soccerobj.SoccerBall(),self.cst)
         quarters=[i*state.height/4 for i in range(1,4)]
         rows=[state.width*0.1,state.width*0.35,state.width*(1-0.35),state.width*(1-0.1)]
         if self.num_players!=1 and self.num_players!=2 and self.num_players !=4:
