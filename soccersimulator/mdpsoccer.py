@@ -42,6 +42,8 @@ class SoccerAction(object):
 #########################    e######################################################
 
 class SoccerState:
+    to_save=["_winning_team","score_team1","score_team2","max_steps","cur_step",\
+            "cur_battle","battles_count","_width","_height"]
     def __init__(self,team1,team2,ball):
         self.team1=team1
         self.team2=team2
@@ -59,37 +61,16 @@ class SoccerState:
         self.actions_team2=None
     def __eq__(self,other):
         return (self.team1 == other.team1) and (self.team2 == other.team2) and (self.ball == other.ball)
-    def copy_safe(self):
-        team1=self.team1.copy_safe()
-        team2=self.team2.copy_safe()
+    def copy(self,safe=False):
+        team1=self.team1.copy(safe)
+        team2=self.team2.copy(safe)
         state=SoccerState(team1,team2,self.ball.copy())
-        state._winning_team=self._winning_team
-        state._width=self._width
-        state._height=self._height
-        state.actions_team1=self.actions_team1
-        state.actions_team2=self.actions_team2
-        state.score_team1=self.score_team1
-        state.score_team2=self.score_team2
-        state.max_steps=self.max_steps
-        state.cur_battle=self.cur_battle
-        state.cur_step=self.cur_step
-        state.battles_count=self.battles_count
-        return state
-    def copy(self):
-        team1=self.team1.copy()
-        team2=self.team2.copy()
-        state=SoccerState(team1,team2,self.ball.copy())
-        state._winning_team=self._winning_team
-        state._width=self._width
-        state._height=self._height
-        state.actions_team1=self.actions_team1
-        state.actions_team2=self.actions_team2
-        state.score_team1=self.score_team1
-        state.score_team2=self.score_team2
-        state.max_steps=self.max_steps
-        state.cur_battle=self.cur_battle
-        state.cur_step=self.cur_step
-        state.battles_count=self.battles_count
+        for k in self.to_save:
+            state.__dict__[k]=self.__dict__[k]
+        if self.actions_team1:
+            state.actions_team1=[a.copy() for a in self.actions_team1]
+        if self.actions_team2:
+            state.actions_team2=[a.copy() for a in self.actions_team2]
         return state
 
     @property
@@ -205,6 +186,122 @@ class SoccerState:
     def __str__(self):
         return str(self.ball)+"\n"+ str(self.team1)+"\n"+str(self.team2)
 
+    def to_dic(self):
+        res=dict()
+        for k in self.to_save:
+            res[k]=self.__dict__[k]
+        res["team1.name"]=self.team1.name
+        res["team2.name"]=self.team2.name
+        #res["team1.club"]=self.team1.club.name
+        #res["team2.club"]=self.team2.club.name
+        res["team1"]=[ (p.name,p.strategy.name,p.position.x,p.position.y,p.angle,p.speed,p._num_before_shoot) for p in self.team1]
+        res["team2"]=[ (p.name,p.strategy.name,p.position.x,p.position.y,p.angle,p.speed,p._num_before_shoot) for p in self.team2]
+        res["ball"]=(self.ball.position.x,self.ball.position.y,self.ball.speed.x,self.ball.speed.y)
+        res["actions_team1"]=None
+        res["actions_team2"]=None
+        if self.actions_team1:
+            res["actions_team1"]=[(a.acceleration.x,a.acceleration.y,a.shoot.x,a.shoot.y) for a in self.actions_team1]
+        if self.actions_team2:
+            res["actions_team2"]=[(a.acceleration.x,a.acceleration.y,a.shoot.x,a.shoot.y) for a in self.actions_team2]
+        return res
+    @staticmethod
+    def create_from_dic(dic,team1=None,team2=None):
+        if not team1:
+            team1=SoccerTeam(dic["team1.name"])
+            for t in dic["team1"]:
+                p=SoccerPlayer(t[0])
+                team1.add_player(p)
+        if not team2:
+            team2=SoccerTeam(dic["team2.name"])
+            for t in dic["team2"]:
+                p=SoccerPlayer(t[0])
+                team2.add_player(p)
+        state=SoccerState(team1,team2,soccerobj.SoccerBall())
+        state.from_dic(dic)
+        return state
+    def from_dic(self,dic):
+        for i,t in enumerate(dic["team1"]):
+            p=self.team1.players[i]
+            p.strategy=strategies.SoccerStrategy(t[1])
+            p.position.x,p.position.y,p.angle,p.speed,p._num_before_shoot=t[2:]
+        for i,t in enumerate(dic["team2"]):
+            p=self.team2.players[i]
+            p.strategy=strategies.SoccerStrategy(t[1])
+            p.position.x,p.position.y,p.angle,p.speed,p._num_before_shoot=t[2:]
+        self.ball.position.x,self.ball.position.y,self.ball.speed.x,self.ball.speed.y=dic['ball']
+        for k in self.to_save:
+            self.__dict__[k]=dic[k]
+        if dic["actions_team1"]:
+            self.actions_team1=[SoccerAction(Vector2D(t[0],t[1]),Vector2D(t[2],t[3])) for t in dic["actions_team1"]]
+        if dic["actions_team2"]:
+            self.actions_team2=[SoccerAction(Vector2D(t[0],t[1]),Vector2D(t[2],t[3])) for t in dic["actions_team2"]]
+
+    def to_blockfile(self):
+#    to_save=["_winning_team","score_team1","score_team2","max_steps","cur_step",\"cur_battle","battles_count","_width","_height"]
+        nbp=len(self.team1.players)
+        res="|".join(str(x) for x in [nbp,self.team1.name,self.team2.name,\
+                self._winning_team,self.score_team1,self.score_team2,self.max_steps,self.cur_step,\
+                self.cur_battle,self.battles_count,self._width,self._height])
+        res+="\n"
+        res+="|".join("%.3f"  % (x,) for x in [self.ball.position.x,self.ball.position.y,self.ball.speed.x,self.ball.speed.y])
+        res+="\n"
+        for p in self.team1:
+            res+="|".join(str(x) for x in [p.name.replace("|",""),p.strategy.name.replace("|",""),\
+                "%.3f" %(p.position.x,),"%.3f" %(p.position.y,),"%.3f" %(p.angle,),"%.3f" %( p.speed,),\
+                "%.3f" %(p._num_before_shoot,)])
+            res+="\n"
+        for p in self.team2:
+            res+="|".join(str(x) for x in [p.name.replace("|",""),p.strategy.name.replace("|",""),\
+                "%.3f" %(p.position.x,),"%.3f" %(p.position.y,),"%.3f" %(p.angle,),"%.3f" %( p.speed,),\
+                "%.3f" %(p._num_before_shoot,)])
+            res+="\n"
+        if self.actions_team2 and self.actions_team1:
+            for a in self.actions_team1:
+                res+="|".join("%.3f" % (x,) for x in [a.acceleration.x,a.acceleration.y,a.shoot.x,a.shoot.y])
+                res+="\n"
+            for a in self.actions_team2:
+                res+="|".join("%.3f" % (x,) for x in [a.acceleration.x,a.acceleration.y,a.shoot.x,a.shoot.y])
+                res+="\n"
+        return res
+    @staticmethod
+    def from_blockfile(block,team1=None,team2=None):
+        lines=[l.split("|") for l in  block]
+        #"import pdb
+        #pdb.set_trace()
+        info=lines.pop(0)
+        nbp=int(info[0])
+        ball_line=lines.pop(0)
+        ball=soccerobj.SoccerBall(Vector2D(float(ball_line[0]),float(ball_line[1])),\
+                Vector2D(float(ball_line[2]),float(ball_line[3])))
+        t1_list=lines[0:nbp]
+        t2_list=lines[nbp:2*nbp]
+        a1_list=lines[2*nbp:3*nbp]
+        a2_list=lines[3*nbp:4*nbp]
+        if not team1:
+            team1=soccerobj.SoccerTeam(info[1])
+            for p in t1_list:
+                team1.add_player(soccerobj.SoccerPlayer(p[0]))
+        if not team2:
+            team2=soccerobj.SoccerTeam(info[2])
+            for p in t2_list:
+                team2.add_player(soccerobj.SoccerPlayer(p[0]))
+        state=SoccerState(team1,team2,ball)
+        for l,p in zip(t1_list+t2_list,state.team1.players+state.team2.players):
+            p.strategy=strategies.SoccerStrategy(l[1])
+            p.position.x=float(l[2])
+            p.position.y=float(l[3])
+            p.angle=float(l[4])
+            p.speed=float(l[5])
+
+        state.actions_team1=[SoccerAction(Vector2D(float(a[0]),float(a[1])),\
+                    Vector2D(float(a[2]),float(a[3]))) for a in a1_list]
+        state.actions_team2=[SoccerAction(Vector2D(float(a[0]),float(a[1])),\
+                    Vector2D(float(a[2]),float(a[3]))) for a in a2_list]
+        state._winning_team,state.score_team1,state.score_team2,state.max_steps,\
+            state.cur_step,state.cur_battle,state.battles_count,state._width,state._height=[int(x) for x in info[3:]]
+        return state
+
+
 
 ###############################################################################
 # SoccerBattle
@@ -231,13 +328,18 @@ class SoccerBattle(object):
         self.obs=None
         self._speed=False
 
-    def copy_safe(self):
-        battle=SoccerBattle(self.team1.copy_safe(),self.team2.copy_safe(),self.battles_count,self.max_steps)
+    @staticmethod
+    def from_save(dic):
+        res=dic["soccer_battle"]
+        res.battles=[ [SoccerState.create_from_dic(s,res.team1,res.team2) for s in battle] for battle in dic["battles"] ]
+        return res
+    def copy(self,safe=False):
+        battle=SoccerBattle(self.team1.copy(safe),self.team2.copy(safe),self.battles_count,self.max_steps)
         battle.score_team1=self.score_team1
         battle.score_team2=self.score_team2
         battle.score_draw=self.score_draw
         if self.state:
-            battle.state=self.state.copy_safe()
+            battle.state=self.state.copy(safe)
         return battle
     def __str__(self):
         return "%s vs %s : %s-%s (%s)" %(str(self.team1), str(self.team2), str(self.score_team1),str(self.score_team2),str(self.score_draw))
@@ -346,7 +448,7 @@ class SoccerBattle(object):
         if self.obs:
             self.obs.finish_battle(self.state.winning_team)
     def next_step(self):
-        if self.state.winning_team!=0:
+        if self.state.winning_team!=0 or self.cur_step>=self.max_steps:
             return False
         if self.cur_step<self.max_steps:
             self.state.cur_step=self.cur_step
@@ -423,6 +525,7 @@ class SoccerBattle(object):
             for p in self.state.team2.players:
                 if hasattr(p.strategy,"send_to_strat"):
                         p.strategy.send_to_strat(2,p,*args,**kwargs)
+
 
 
 class Events(object):

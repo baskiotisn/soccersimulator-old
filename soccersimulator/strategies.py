@@ -96,13 +96,13 @@ class InteractStrategy(ListStrategy):
     def compute_strategy(self,state,player,teamid):
         self.state=state
         if self.save_all:
-            self.states.append((self.state.copy_safe(),teamid,player.id,self.current.name))
+            self.states.append((self.state,teamid,player.id,self.current.name))
         return self.current.compute_strategy(state,player,teamid)
     def send_to_strat(self,teamid,player,key):
         if key in self.list_key:
             self.current=self.strategies[self.list_key.index(key)]
             if not self.save_all:
-                self.states.append((self.state.copy_safe(),teamid,player.id,self.current.name))
+                self.states.append((self.state,teamid,player.id,self.current.name))
             return True
         return False
     def start_battle(self,state):
