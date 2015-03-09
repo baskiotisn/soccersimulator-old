@@ -27,7 +27,7 @@ def load_from_github(login,project,path=TARGET_PATH):
 
 def check_date(login,project,path=TARGET_PATH):
     print login
-    os.system("git --git-dir=%s/.git log  --format=%%cr|uniq" % (os.path.join(path,login),))
+    os.system("git --git-dir=%s/.git log  --format=\"%%Cgreen%%cd %%Creset \"| cut -d \" \" -f 1-3,7| uniq" % (os.path.join(path,login),))
 
 
 def load_directory(tournament,path):
