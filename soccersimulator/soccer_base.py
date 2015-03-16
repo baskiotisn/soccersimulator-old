@@ -49,7 +49,7 @@ class Vector2D(object):
         :type x: float
         :type y: float
         """
-        if angle and norm:
+        if angle!=None and norm!=None:
             self.x=math.cos(angle)*norm
             self.y=math.sin(angle)*norm
             return
