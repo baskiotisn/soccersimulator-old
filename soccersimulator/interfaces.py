@@ -7,7 +7,7 @@ import pyglet
 from pyglet import gl
 import numpy as np
 from soccer_base import *
-
+import sys
 import threading
 import time
 import mdpsoccer
@@ -16,8 +16,8 @@ import strategies
 import pickle
 import traceback
 import zlib
+import pdb
 #soccer_base  cste
-
 
 ##############################################################################
 ## interfaces
@@ -44,18 +44,18 @@ class ConsoleListener(AbstractSoccerObserver):
     def __init__(self):
         pass
     def begin_battles(self,state,count,max_step):
-        print "Debut combats : %d" % count
+        print("Debut combats : %d" % count)
     def start_battle(self,state):
-        print "Debut match"
+        print("Debut match")
     def update_battle(self,state,step):
 
         if step % 100==0:
-            print "Update %d step " %step
-            print str(state)
+            print("Update %d step " %step)
+            print(str(state))
     def finish_battle(self,winner):
-        print "Fin : %d" %winner
+        print("Fin : %d" %winner)
     def end_battles(self):
-        print "Fin combats"
+        print("Fin combats")
 
 
 class LogListener:
@@ -76,7 +76,13 @@ class LogObserver(AbstractSoccerObserver):
     def update_battle(self,state,step):
         self.battles[-1].append(state)
     def finish_battle(self,winner):
-        pass
+        if winner==1:
+            self.battles[-1][-1].score_team1+=1
+        if winner==2:
+            self.battles[-1][-1].score_team1+=1
+        if winner==0:
+            self.battles[-1][-1].score_draw+=1
+
     def end_battles(self):
         self.write()
         self.battles=[]
@@ -91,12 +97,12 @@ class LogObserver(AbstractSoccerObserver):
             for b in self.battles:
                 for s in b:
                     res+="%s" % s.to_blockfile()
-                    res+="++++++++++++\n"
-                res+="**************\n"
+                    res+="++++++++++++endstate\n"
+                res+="**************endbattle\n"
             cres=zlib.compress(res,9)
             with open(self.filename,"a" if self._append else "wb") as f:
                 f.write(cres+"\n")
-                f.write("-------------\n")
+                f.write("-------------endround\n")
                 # for b in self.battles:
                 #     for s in b:
                 #         f.write("%s" % s.to_blockfile())
@@ -118,11 +124,7 @@ class LogObserver(AbstractSoccerObserver):
         with open(fn,"rb") as f:
             for zl in f:
                 if zl.startswith("----"):
-                    try:
-                        line=zlib.decompress(zread)
-                    except:
-                        import pdb
-                        pdb.set_trace()
+                    line=zlib.decompress(zread)
                     for l in line.split("\n"):
                         if l =="":
                             continue
@@ -142,13 +144,11 @@ class LogObserver(AbstractSoccerObserver):
                             states=[]
                             continue
                         block.append(l)
-                    #if l.startswith("----"):
                     tour.append(soc_battle)
                     soc_battle=None
                     team1=None
                     team2=None
                     zread=""
-                    #continue
                 else:
                     zread+=zl
         return tour
@@ -201,7 +201,7 @@ class ObjectSprite:
             gl.glPopMatrix()
           except Exception,e:
               time.sleep(0.0001)
-              print e,traceback.print_exc()
+              print(e,traceback.print_exc())
 TEAM1_COLOR=[0.9,0.1,0.1]
 TEAM2_COLOR=[0.1,0.1,0.9]
 FIELD_COLOR=[0.3,0.9,0.3]
@@ -217,8 +217,12 @@ HUD_TEAM1_COLOR=[int(x*255) for x in TEAM1_COLOR]+[200]
 HUD_TEAM2_COLOR=[int(x*255) for x in TEAM2_COLOR]+[200]
 HUD_TEXT_COLOR=[0,200,0,255]
 MSG_TEXT_COLOR=[200,200,200,255]
-
-FPS=40.
+PANEL_WIDTH=40
+PANEL_BKG_COLOR=[1,1,1]
+PANEL_TXT_COLOR=[10,10,10,200]
+PANEL_SCORE_COLOR=[200,10,10,100]
+PANEL_DELTA=6
+FPS=50.
 FPS_MOD=5.
 
 class Primitive2DGL(object):
@@ -270,8 +274,14 @@ class Primitive2DGL(object):
         @staticmethod
         def create_hud():
             hud = Primitive2DGL([(0,GAME_HEIGHT),(0,GAME_HEIGHT+HUD_HEIGHT),\
-                        (GAME_WIDTH,GAME_HEIGHT+HUD_HEIGHT),(GAME_WIDTH,GAME_HEIGHT)],HUD_BKG_COLOR)
+                        (GAME_WIDTH+PANEL_WIDTH,GAME_HEIGHT+HUD_HEIGHT),(GAME_WIDTH+PANEL_WIDTH,GAME_HEIGHT)],HUD_BKG_COLOR)
             return [hud]
+        @staticmethod
+        def create_panel():
+            panel = Primitive2DGL([(GAME_WIDTH,GAME_HEIGHT+HUD_HEIGHT),(GAME_WIDTH+PANEL_WIDTH,GAME_HEIGHT+HUD_HEIGHT),\
+                    (GAME_WIDTH+PANEL_WIDTH,0),(GAME_WIDTH,0)],PANEL_BKG_COLOR)
+            return [panel]
+
         def __init__(self,verts,color,primtype=gl.GL_TRIANGLE_FAN):
             self.verts=verts
             self.color=color
@@ -301,19 +311,16 @@ class TextSprite:
     def draw(self):
         try:
             gl.glPushMatrix()
-            #gl.glLoadIdentity()
+            gl.glLoadIdentity()
             gl.glTranslatef(self.position.x,self.position.y,0)
             gl.glScalef(self.scale,self.scale,1)
+            time.sleep(0.001)
             self._label.draw()
+        except Exception,e:
+            print(e,traceback.print_exc())
+            time.sleep(0.0001)
+        finally:
             gl.glPopMatrix()
-            pass
-        except Exception,e:
-            time.sleep(0.0001)
-            print e,traceback.print_exc()
-
-        except Exception,e:
-            time.sleep(0.0001)
-            print e,traceback.print_exc()
 
 class PlayerSprite(ObjectSprite):
         def __init__(self,name,team,obs):
@@ -328,6 +335,8 @@ class PlayerSprite(ObjectSprite):
         def _get_object(self):
             return self._obs.get_state().get_team(self.team)[self.name]
         def draw(self):
+            if not self._get_object():
+                return
             ObjectSprite.draw(self)
             speed=self._get_object().speed
             self._text.position=self.position
@@ -359,6 +368,7 @@ class BackgroundSprite(ObjectSprite):
             ObjectSprite.__init__(self,"back",False)
             self.add_primitives(Primitive2DGL.create_field())
             self.add_primitives(Primitive2DGL.create_hud())
+            self.add_primitives(Primitive2DGL.create_panel())
 def get_color_scale(x):
         return [x,0.,1.-x]
 
@@ -378,6 +388,32 @@ class Hud:
     def draw(self):
         for s in self.sprites.values():
             s.draw()
+
+
+class Panel:
+    def __init__(self):
+        self.sprites=[]
+        self.scale=0.055
+        self._is_ready=True
+    def from_list(self,l):
+        self._is_ready=False
+        delta=-PANEL_DELTA
+        self.sprites=[]
+        for i,s in enumerate(l):
+            self.sprites.append([TextSprite("%d - %s" % (i+1,s.team.name),\
+                    PANEL_TXT_COLOR,self.scale,position=Vector2D(GAME_WIDTH,GAME_HEIGHT+HUD_HEIGHT+delta)),\
+                    TextSprite(s.str_nocolor(),PANEL_SCORE_COLOR,self.scale,\
+                    position=Vector2D(GAME_WIDTH+PANEL_WIDTH*1/4.,GAME_HEIGHT+HUD_HEIGHT+delta-PANEL_DELTA/2.))])
+            delta-=PANEL_DELTA
+            self._is_ready=True
+    def draw(self):
+            if not self._is_ready:
+                return
+            for s in self.sprites:
+                s[0].draw()
+                s[1].draw()
+
+
 class PygletAbstractObserver(pyglet.window.Window):
 
     key_handlers = {
@@ -403,13 +439,16 @@ class PygletAbstractObserver(pyglet.window.Window):
         self._tournament=None
         self._nb_tournaments=0
         self.hud=Hud()
+        self.panel=Panel()
         self._hud_names=True
         pyglet.clock.schedule_interval(self.update,1./self._fps)
         self.ongoing=False
         self._list_msg=["Touches :", "p -> jouer", "","m -> switch manuel/auto","n -> avancement manuel",\
                         "+ -> increases fps", "- -> decreases fps","esc -> sortir"]
         self.welcome=self.get_welcome(self._list_msg)
-        self._save_fps=0
+        self.scores=dict()
+        self._speed=False
+
     def get_welcome(self,list_msg):
         gw=GAME_WIDTH*0.35
         gh=GAME_HEIGHT*0.8
@@ -441,13 +480,15 @@ class PygletAbstractObserver(pyglet.window.Window):
                         self._background.draw()
                         for d in self._sprites.values():
                             d.draw()
+                    self.hud.draw()
+                    self.panel.draw()
             else:
-                for d in self.welcome:
-                    d.draw()
-            self.hud.draw()
+                    for d in self.welcome:
+                        d.draw()
+
         except Exception,e:
             time.sleep(0.0001)
-            print e,traceback.print_exc()
+            print(e,traceback.print_exc())
     def on_draw(self):
         self.render()
 
@@ -458,29 +499,31 @@ class PygletAbstractObserver(pyglet.window.Window):
             return pyglet.event.EVENT_HANDLED
 
     def update(self,dt):
+        if not self._is_ready:
+            return
+        self._is_ready=False
         team1=team2=ongoing=ibattle=itour=""
         if self._soccer_battle and self.get_state():
-            team1="%s - %s" % (self._soccer_battle.team1.name, self.get_state().score_team1)
-            team2="%s - %s" % (self._soccer_battle.team2.name,self.get_state().score_team2)
+            team1="%s - %s" % (self.get_state().team1.name, self.get_state().score_team1)
+            team2="%s - %s" % (self.get_state().team2.name,self.get_state().score_team2)
             ongoing="Round : %d/%d" % (self.get_state().cur_step,self.get_state().max_steps)
             ibattle="Battle : %d/%d" % (self.get_state().cur_battle,self.get_state().battles_count)
         if self._tournament and self._nb_tournaments>0:
             itour="Tournament : %d/%d" %(self._i_tour+1,self._nb_tournaments)
         self.hud.set_val(team1=team1,team2=team2,ongoing=ongoing,ibattle=ibattle,itour=itour)
-        if self.ongoing and self._is_ready:
-            self._is_ready=False
+        if self.ongoing:
             self.update_state()
-            if not self._manual_step:
-                self.set_ready()
+        if not self._manual_step:
+            self._is_ready=True
+
     def switch_hud_names(self):
         self._hud_names=not self._hud_names
-
     def update_state(self):
         pass
     def switch_manual_step(self):
         self._manual_step = not self._manual_step
         if not self._manual_step:
-            self.set_ready()
+            self._is_ready=True
     def on_resize(self,width, height):
         pyglet.window.Window.on_resize(self,width,height)
         self.focus()
@@ -493,12 +536,12 @@ class PygletAbstractObserver(pyglet.window.Window):
         try:
             gl.glMatrixMode(gl.GL_PROJECTION)
             gl.glLoadIdentity()
-            gl.gluOrtho2D(0, GAME_WIDTH+HUD_WIDTH, 0, GAME_HEIGHT+HUD_HEIGHT)
+            gl.gluOrtho2D(0, GAME_WIDTH+PANEL_WIDTH, 0, GAME_HEIGHT+HUD_HEIGHT)
             gl.glMatrixMode(gl.GL_MODELVIEW)
             gl.glLoadIdentity()
         except Exception:
             time.sleep(0.0001)
-            print e,traceback.print_exc()
+            print(e,traceback.print_exc())
     def on_close(self):
         res=pyglet.window.Window.on_close(self)
         self.exit()
@@ -508,22 +551,29 @@ class PygletAbstractObserver(pyglet.window.Window):
         self.set_ready()
         self.close()
         pyglet.app.exit()
-
-    def start_battle(self):
-        pass
-    def end_battles(self):
-        pass
     def begin_battles(self,battles_count,max_steps):
-        pass
+        self._is_ready=True
+    def end_battles(self):
+        state=self.get_state()
+        if state.team1.name not in self.scores:
+            self.scores[state.team1.name]=soccerobj.Score(state.team1)
+        if state.team2.name not in self.scores:
+            self.scores[state.team2.name]=soccerobj.Score(state.team2)
+        self.scores.get(state.team1.name).add_score(state.score_team1,state.score_team2)
+        self.scores.get(state.team2.name).add_score(state.score_team2,state.score_team1)
+        self.panel.from_list(sorted(self.scores.values(),reverse=True))
+        self._is_ready=True
+        return
+    def start_battle(self):
+        self._is_ready=True
     def finish_battle(self,win):
-        pass
+        self._is_ready=True
     def set_fps(self):
         pyglet.clock.unschedule(self.update)
         pyglet.clock.schedule_interval(self.update,1./self._fps)
 
     def increase_fps(self):
         self._fps=min(self._fps+FPS_MOD,300)
-        print self._fps
         self.set_fps()
     def decrease_fps(self):
         self._fps=max(self._fps-FPS_MOD,1)
@@ -545,36 +595,31 @@ class PygletReplay(PygletAbstractObserver):
         self._list_msg.insert(4,"q -> round precedent")
         self._list_msg.insert(5,"s -> round suivant")
         self.welcome=self.get_welcome(self._list_msg)
-
+        self._state=None
     def get_state(self):
-        if self._soccer_battle and self._soccer_battle.cur_battle<len(self._soccer_battle.battles)\
-            and self._soccer_battle.cur_step<len(self._soccer_battle.battles[self._soccer_battle.cur_battle]):
-            return self._soccer_battle.battles[self._soccer_battle.cur_battle][self._soccer_battle.cur_step]
-        return None
+        return self._state
     def play(self):
         if self.ongoing:
             return
         self.ongoing=True
-        self.play_round()
+        self.begin_battles()
 
-    def play_round(self):
+    def begin_battles(self,battles_count=None,max_steps=None):
         if not self.ongoing:
             return
         if self._i_tour>=len(self._tournament):
             return
-        #self.set_soccer_battle(mdpsoccer.SoccerBattle.from_save(self._tournament[self._i_tour]))
-        #self.battles=self._tournament[self._i_tour]["battles"]
         self.set_soccer_battle(self._tournament[self._i_tour])
         self._soccer_battle.battles=[ [mdpsoccer.SoccerState.from_blockfile(s) for s in b] for b in self._soccer_battle.battles_block]
-        #self._soccer_battle.battles=[[mdpsoccer.SoccerState.from_blockfile()]]
-        self.play_battle()
+        super(PygletReplay,self).begin_battles(self._soccer_battle.battles_count,self._soccer_battle.max_steps)
+        self.start_battle()
 
-    def play_battle(self):
+    def start_battle(self):
         if not self.ongoing:
             return
         self._soccer_battle.cur_step=0
-        self.set_ready()
-
+        self.update_state()
+        super(PygletReplay,self).start_battle()
 
     def play_prev_battle(self):
         if not self.ongoing:
@@ -582,9 +627,8 @@ class PygletReplay(PygletAbstractObserver):
         self._is_ready=False
         if self._soccer_battle.cur_battle>0:
             self._soccer_battle.cur_battle-=1
-            self.play_battle()
-        else:
-            self.set_ready()
+            self.start_battle()
+        self._is_ready=True
 
     def play_next_battle(self):
         if not self.ongoing:
@@ -592,10 +636,15 @@ class PygletReplay(PygletAbstractObserver):
         self._is_ready=False
         if self._soccer_battle.cur_battle<len(self._soccer_battle.battles)-1:
             self._soccer_battle.cur_battle+=1
-            self.play_battle()
+            self.start_battle()
         else:
-            self.play_next_tour()
-        #self.set_ready()
+            self.end_battles()
+            if self._i_tour<self._nb_tournaments-1:
+                self._i_tour+=1
+                self.begin_battles()
+            else:
+                self.ongoing=False
+        self._is_ready=True
 
     def play_prev_tour(self):
         if not self.ongoing:
@@ -603,53 +652,53 @@ class PygletReplay(PygletAbstractObserver):
         self._is_ready=False
         if self._i_tour>0:
             self._i_tour-=1
-            self.play_round()
-        else:
-            self.set_ready()
+            self.begin_battles()
+            state=self._soccer_battle.battles[-1][-1]
+            self.scores.get(state.team1.name).sub_score(state.score_team1,state.score_team2)
+            self.scores.get(state.team2.name).sub_score(state.score_team2,state.score_team1)
+            self.panel.from_list(sorted(self.scores.values(),reverse=True))
+        self._is_ready=True
 
     def play_next_tour(self):
         if not self.ongoing:
             return
         self._is_ready=False
-        if self._i_tour<(self._nb_tournaments-1):
-            self._i_tour+=1
-            self.play_round()
-        else:
-            self.set_ready()
+        self._soccer_battle.cur_battle=len(self._soccer_battle.battles)-1
+        self._soccer_battle.cur_step=len(self._soccer_battle.battles[-1])-1
+        self.update_state()
+        self._is_ready=True
 
     def update_state(self):
         if not self.ongoing:
-            return55
+            return
+        self._is_ready=False
         if self._soccer_battle.cur_step<len(self._soccer_battle.battles[self._soccer_battle.cur_battle]):
+            self._state=self._soccer_battle.battles[self._soccer_battle.cur_battle][self._soccer_battle.cur_step]
             self._soccer_battle.cur_step+=1
         else:
+            self.finish_battle(self._state.winning_team)
             self.play_next_battle()
 
     def load(self,fn):
-        #tour=[]
-        #with open(fn,"rb") as f:
-        #    while 1:
-        #        try:
-        #            tour.append(pickle.load(f))
-        #        except EOFError:
-        #            break
-        #self._tournament=tour
         self._tournament=LogObserver.read(fn)
         self._nb_tournaments=len(self._tournament)
         self._i_tour=0
-        print "Fin Load de %d matchs" %(self._nb_tournaments,)
+        print("Fin Load de %d matchs" %(self._nb_tournaments,))
+
 
 class PygletObserver(PygletAbstractObserver):
 
     def __init__(self,width=1200,height=800):
         super(PygletObserver,self).__init__(width,height)
         self.key_press=None
+        self._state=None
         self.key_handlers.update({pyglet.window.key.P: lambda w: w.start_config()})
     def start_config(self):
         if self._soccer_battle and not self.ongoing:
-            self._soccer_battle.run_multiple_battles(father=self)
+            self._soccer_battle.play_battle()
             self.ongoing=True
-            self.set_ready()
+            self._is_ready=True
+            self._speed=False
     def on_key_press(self,symbol, modifiers):
         if super(PygletObserver,self).on_key_press(symbol,modifiers) != pyglet.event.EVENT_HANDLED:
             k=pyglet.window.key.symbol_string(symbol)
@@ -661,14 +710,15 @@ class PygletObserver(PygletAbstractObserver):
             if self._soccer_battle:
                 self._soccer_battle.send_to_strat(self.key_press)
     def get_state(self):
-        if self._soccer_battle:
-            return self._soccer_battle.state
-        return None
+        return self._state
 
     def update_state(self):
         if not self.ongoing:
             return
-        self._soccer_battle.update()
+        if not self._speed:
+            self._soccer_battle.update()
+        if self._soccer_battle.state!=None:
+            self._state=self._soccer_battle.state
         if not self._soccer_battle._ongoing:
             self.end_my_battles()
     def end_my_battles(self):
@@ -695,6 +745,7 @@ class PygletTournamentObserver(PygletObserver):
 
     def skip_battles(self):
         if self.ongoing:
+            self._speed=True
             _thread=threading.Thread(target=self._soccer_battle.run_until_end)
             _thread.start()
         else:
@@ -714,13 +765,19 @@ class PygletTournamentObserver(PygletObserver):
             if self._soccer_battle:
                 self._soccer_battle.send_to_strat(self.key_press)
     def update_state(self):
-        if not self.ongoing:
+        if not self.ongoing or not self._soccer_battle:
             return
-        self._soccer_battle.update()
+        if not self._speed or not self._soccer_battle._ongoing_battle:
+            if not self._soccer_battle.update():
+                self._state=self._soccer_battle.state
+                self._soccer_battle.end_battles()
+        if self._soccer_battle.state!=None:
+            self._state=self._soccer_battle.state
         self._i_tour=self._tournament._i_tour
         self._nb_tournaments=self._tournament.cur_nb_tour
         if not self._soccer_battle._ongoing:
             self._is_ready=False
+            self._speed=False
             self._tournament._i_tour+=1
             self._soccer_battle=None
             self._tournament.play_round()
