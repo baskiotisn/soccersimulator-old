@@ -50,6 +50,7 @@ class SoccerState:
         self._winning_team=0
         self.score_team1=0
         self.score_team2=0
+        self.score_draw=0
         self.max_steps=0
         self.cur_step=0
         self.cur_battle=0
@@ -66,6 +67,7 @@ class SoccerState:
                 "maxBallAcceleration":maxBallAcceleration,"shootRandomAngle":shootRandomAngle,
                 "ballBrakeSquare":ballBrakeSquare,"ballBrakeConstant":ballBrakeConstant}
         self.cst.update(cst)
+
     def __eq__(self,other):
         return (self.team1 == other.team1) and (self.team2 == other.team2) and (self.ball == other.ball)
     def copy(self,safe=False):
@@ -344,13 +346,11 @@ class SoccerBattle(object):
         self.battles_count=battles_count
         self.max_steps=max_steps
         self.state=None
-        self.cur_step=0
         self.cur_battle=0
-        self._is_ready=False
+        self._is_ready=True
         self._ongoing=False
-        self._father=None
+        self._ongoing_battle=False
         self.obs=None
-        self._speed=False
         self.cst=dict(cst)
 
     @staticmethod
@@ -372,99 +372,166 @@ class SoccerBattle(object):
         self.score_team1=0
         self.score_team2=0
         self.score_draw=0
+
     @property
     def num_players(self):
-        return self.team1.num_players
+        if self.team1:
+            return self.team1.num_players
+        return 0
 
-    def run_multiple_battles(self,battles_count=None,max_steps=None,father=None):
+    def play_battle(self,battles_count=None,max_steps=None):
+        if not self._is_ready or self._ongoing:
+            return
+        self.begin_battles(battles_count,max_steps)
+        if not self.obs:
+            self.run_until_end()
+            self.end_battles()
+    def run_until_end(self):
+        if not self._is_ready or not self._ongoing:
+            return
+        while self.update():
+            time.sleep(0.000001)
+
+    def update(self):
+        if not self._is_ready or not self._ongoing:
+            return True
+        if not self._ongoing_battle:
+            return self.next_battle()
+        self.next_step()
+        return True
+
+    def next_step(self):
+        if not self._is_ready or not self._ongoing_battle:
+            return False
+        if self.state.winning_team!=0 or self.state.cur_step>=self.max_steps:
+            return False
+        self._is_ready=False
+        #self.state.cur_step=self.cur_step
+        st1=self.state.copy()
+        st2=self.state.copy()
+        self.state.actions_team1=st1.team1.compute_strategies(st1,1)
+        for j,p in enumerate(st1.team1.players):
+            self.state.team1[j].strategy=p.strategy
+        self.state.actions_team2=st2.team2.compute_strategies(st2,2)
+        for j,p in enumerate(st2.team2.players):
+            self.state.team2[j].strategy=p.strategy
+        self.state.apply_actions()
+        self.state.team1._exceptions=st1.team1._exceptions
+        self.state.team2._exceptions=st2.team2._exceptions
+        st = self.state.copy()
+        self.listeners.update_battle(st,self.state.cur_step)
+        if len(st1.team1.exceptions)>NB_MAX_EXCEPTIONS:
+            self.state.winning_team=2
+            print "\033[91m Too much exceptions for \033[92m %s \033[0m, last one :\n" % (st1.team1.name,)
+            print st1.team1.exceptions[-1][1]
+        if len(st2.team2.exceptions)>NB_MAX_EXCEPTIONS:
+            self.state.winning_team=1
+            print "\033[91m Too much exceptions for \033[92m %s \033[0m, last one : \n" % (st2.team2.name,)
+            print st2.team2.exceptions[-1][1]
+
+        self.state.cur_step+=1
+        if self.state.cur_step>=self.max_steps or (self.state.winning_team>0):
+            self._is_ready=True
+            return self.finish_battle()
+        self._is_ready=True
+
+    def next_battle(self):
+        if not self._ongoing or not self._is_ready or self._ongoing_battle:
+            return True
+        if self.cur_battle<self.battles_count:
+                self.cur_battle+=1
+                self.start_battle()
+                return True
+        #self.end_battles()
+        return False
+    def begin_battles(self,battles_count,max_steps):
+        if self._ongoing or not self._is_ready:
+            return
         self._is_ready=False
         self._ongoing=True
-        self._father=father
         if battles_count:
             self.battles_count=battles_count
         if max_steps:
             self.max_steps=max_steps
-        self.begin_battles(self.battles_count,self.max_steps)
-        self.next_battle()
-        self._is_ready=True
-        if not self._father:
-            self.run_until_end()
-
-    def run_until_end(self):
-        while 1:
-            if not self._ongoing:
-                break
-            self.update()
-            time.sleep(0.000001)
-    def run_until_next(self):
-        while 1:
-            if not self.next_step():
-                break
-        self.next_battle()
-        self._is_ready=True
-
-    def update(self):
-        if not self._is_ready or not self._ongoing:
-            return
-        self._is_ready=False
-        if self._speed:
-            self.run_until_next()
-            self._is_ready=True
-            return
-        if not self.next_step():
-            self.next_battle()
-        self._is_ready=True
-
-    def next_battle(self):
-        if self.cur_battle<self.battles_count:
-                self.cur_battle+=1
-                self.start_battle()
-        else:
-            self.end_battles()
-
-    def begin_battles(self,battles_count,max_steps):
         self.init_score()
         self.cur_battle=0
         state=self.create_initial_state()
+        st1=state.copy()
+        st2=state.copy()
+        self.team1.begin_battles(st1,battles_count,max_steps)
+        self.team2.begin_battles(st2,battles_count,max_steps)
+        for i,p in enumerate(st1.team1.players):
+            self.team1[i].strategy=p.strategy
+        for i,p in enumerate(st2.team2.players):
+            self.team2[i].strategy=p.strategy
         st=state.copy()
         self.listeners.begin_battles(st,battles_count,max_steps)
-        st=state.copy()
-        self.team1.begin_battles(st,battles_count,max_steps)
-        st=state.copy()
-        self.team2.begin_battles(st,battles_count,max_steps)
         if self.obs:
             self.obs.begin_battles(battles_count,max_steps)
+        self._is_ready=True
+
+
     def end_battles(self):
+        if not self._ongoing or not self._is_ready:
+            return
+        self._is_ready=False
+        st1=self.state.copy()
+        st2=self.state.copy()
         self.team1.end_battles()
         self.team2.end_battles()
+        for i,p in enumerate(st1.team1.players):
+            self.team1[i].strategy=p.strategy
+        for i,p in enumerate(st2.team2.players):
+            self.team2[i].strategy=p.strategy
         self.listeners.end_battles()
-        self._ongoing=False
         if self.obs:
             self.obs.end_battles()
+        self._ongoing=False
+        self._is_ready=True
+
     def start_battle(self):
-        self.cur_step=0
+        if self._ongoing_battle or not self._is_ready:
+            return
+        self._is_ready=False
+        self._ongoing_battle=True
         self.state=self.create_initial_state()
+        self.state.cur_step=0
         self.state.cur_battle=self.cur_battle
         self.state.score_team1=self.score_team1
         self.state.score_team2=self.score_team2
         st1 = self.state.copy()
         st2 = self.state.copy()
+        st1.team1.start_battle(st1)
+        st2.team2.start_battle(st2)
+        for i,p in enumerate(st1.team1.players):
+            self.state.team1[i].strategy=p.strategy
+        for i,p in enumerate(st2.team2.players):
+            self.state.team2[i].strategy=p.strategy
         st = self.state.copy()
-        self.state.team1.start_battle(st1)
-        self.state.team2.start_battle(st2)
         self.listeners.start_battle(st)
         if self.obs:
             self.obs.start_battle()
+        self._is_ready=True
+
     def finish_battle(self):
+        if not self._ongoing_battle or not self._is_ready:
+            return
+        self._is_ready=False
         if self.state.winning_team==0:
             self.state.team1.finish_battle(0)
             self.state.team2.finish_battle(0)
+            self.state.score_draw+=1
+            self.score_draw+=1
         if self.state.winning_team==1:
             self.state.team1.finish_battle(1)
             self.state.team2.finish_battle(-1)
+            self.state.score_team1+=1
+            self.score_team1+=1
         if self.state.winning_team==2:
             self.state.team1.finish_battle(-1)
             self.state.team2.finish_battle(1)
+            self.state.score_team2+=1
+            self.score_team2+=1
         for i,p in enumerate(self.state.team1.players):
             self.team1[i].strategy=p.strategy
         for i,p in enumerate(self.state.team2.players):
@@ -472,44 +539,8 @@ class SoccerBattle(object):
         self.listeners.finish_battle(self.state.winning_team)
         if self.obs:
             self.obs.finish_battle(self.state.winning_team)
-    def next_step(self):
-        if self.state.winning_team!=0 or self.cur_step>=self.max_steps:
-            return False
-        if self.cur_step<self.max_steps:
-            self.state.cur_step=self.cur_step
-            st1=self.state.copy()
-            st2=self.state.copy()
-            self.state.actions_team1=st1.team1.compute_strategies(st1,1)
-            for j,p in enumerate(st1.team1.players):
-                self.state.team1[j].strategy=p.strategy
-            self.state.actions_team2=st2.team2.compute_strategies(st2,2)
-            self.state.team1._exceptions=st1.team1._exceptions
-            for j,p in enumerate(st2.team2.players):
-                self.state.team2[j].strategy=p.strategy
-            self.state.apply_actions()
-            self.state.team2._exceptions=st2.team2._exceptions
-            st = self.state.copy()
-            self.listeners.update_battle(st,self.cur_step)
-            self.cur_step+=1
-            if len(st1.team1.exceptions)>NB_MAX_EXCEPTIONS:
-                self.state.winning_team=2
-                print "\033[91m Too much exceptions for \033[92m %s \033[0m, last one :\n" % (st1.team1.name,)
-                print st1.team1.exceptions[-1][1]
-            if len(st2.team2.exceptions)>NB_MAX_EXCEPTIONS:
-                self.state.winning_team=1
-                print "\033[91m Too much exceptions for \033[92m %s \033[0m, last one : \n" % (st2.team2.name,)
-                print st2.team2.exceptions[-1][1]
-
-            if self.state.winning_team==0:
-                return True
-        if self.state.winning_team==1:
-            self.score_team1+=1
-        if self.state.winning_team==2:
-            self.score_team2+=1
-        if self.state.winning_team==0:
-            self.score_draw+=1
-        self.finish_battle()
-        return True
+        self._ongoing_battle=False
+        self._is_ready=True
 
     def create_initial_state(self):
         state=SoccerState(self.team1.copy(),self.team2.copy(),soccerobj.SoccerBall(),self.cst)

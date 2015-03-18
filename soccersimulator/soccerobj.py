@@ -247,14 +247,16 @@ class Score:
         self.gf=0
         self.ga=0
         self._list_battles=[]
+        self._team=""
+        self._login=""
+        self._club=""
         if team:
-            self._team=team.name
-            self._login=team.club.login
-            self._club=team.club.name
-        else:
-            self._team=""
-            self._login=""
-            self._club=""
+            if type(team)==SoccerTeam:
+                self._team=team.name
+                self._login=team.club.login
+                self._club=team.club.name
+            else:
+                self._team=team
     def add_score(self,gf,ga,team=None):
         if team:
             self._list_battles.append(((team.club.login,team.club.name,team.name),gf,ga))
@@ -266,6 +268,17 @@ class Score:
             self.loose+=1
         if gf==ga:
             self.draw+=1
+    def sub_score(self,gf,ga,team=None):
+        if team:
+            self._list_battles.remove(((team.club.login,team.club.name,team.name),gf,ga))
+        self.gf-=gf
+        self.ga-=ga
+        if gf>ga:
+            self.win-=1
+        if gf<ga:
+            self.loose-=1
+        if gf==ga:
+            self.draw-=1
     @property
     def battles(self):
         return list(self._list_battles)
@@ -297,6 +310,9 @@ class Score:
         self._list_battles=[]
     def __str__(self):
         return "\033[92m\033[34m%d\033[0m (\033[32m%d\033[0m,\033[31m%d\033[0m,\033[93m%d\033[0m) - (%d,%d)" % (self.score,self.win,self.loose,self.draw,self.gf,self.ga)
+    def str_nocolor(self):
+        return "%d (%d,%d,%d) - [%d,%d] " % (self.score,self.win,self.loose,self.draw,self.gf,self.ga)
+
     @staticmethod
     def format_dic_score(dic_scores):
         s=""
@@ -416,6 +432,7 @@ class SoccerTournament:
             return
 
         b=self.battles[self.list_games[self.cur_nbp]][self._i_tour]
+
         b.battles_count=self.nbgoals
         b.max_steps=self.max_steps
         try:
@@ -433,7 +450,7 @@ class SoccerTournament:
                 self.obs.set_soccer_battle(b)
             else:
                 print "Game %d/%d : %s\n" %(self._i_tour,self.cur_nb_tour,b)
-                b.run_multiple_battles()
+                b.play_battle()
                 print "Game ended %d/%d: %s\n" % (self._i_tour,self.cur_nb_tour,b)
                 self._i_tour+=1
 
