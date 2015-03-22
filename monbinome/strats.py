@@ -13,4 +13,8 @@ class FonceurStrategy(SoccerStrategy):
     def __init__(self):
         self.name="Fonceur"
     def compute_strategy(self,state,player,teamid):
-        return SoccerAction(state.ball.position-player.position,state.get_goal_center((3-teamid))-player.position)
+    	acc=state.ball.position-player.position
+    	acc.scale(1000)
+    	shoot=state.get_goal_center((3-teamid))-player.position
+    	shoot.scale(1000)
+        return SoccerAction(acc,shoot)

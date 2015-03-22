@@ -9,10 +9,18 @@ from soccersimulator import PygletObserver, LogObserver, PygletReplay
 from soccersimulator import SoccerBattle
 from soccersimulator import SoccerPlayer, SoccerTeam, InteractStrategy
 from strats import RandomStrategy, FonceurStrategy
-from apprentissage import FirstTreeStrategy
+#from apprentissage import FirstTreeStrategy
 
 import glob
 import pickle
+
+
+CFG_1=dict({"ballBrakeConstant":0.08, "ballBrakeSquare":0.01})
+
+CFG_2=dict({"ballBrakeConstant":0.05, "ballBrakeSquare":0.0025})
+
+
+CFG_3=dict({"ballBrakeConstant":0.04, "ballBrakeSquare":0.004})
 
 
 
@@ -38,12 +46,12 @@ team3.add_player(SoccerPlayer("Inter 1",inter_strat_player1))
 team3.add_player(SoccerPlayer("Inter 2",inter_strat_player2))
 
 team_tree = SoccerTeam("Team Tree")
-team_tree.add_player(SoccerPlayer("Tree 1",FirstTreeStrategy()))
-team_tree.add_player(SoccerPlayer("Tree 2",FirstTreeStrategy()))
+#team_tree.add_player(SoccerPlayer("Tree 1",FirstTreeStrategy()))
+#team_tree.add_player(SoccerPlayer("Tree 2",FirstTreeStrategy()))
 teams =[team1,team2,team3,team_tree]
 
-def exemple_simple():
-    battle=SoccerBattle(teams[0],teams[1])
+def exemple_simple(cst=CFG_1):
+    battle=SoccerBattle(teams[0],teams[1],cst=cst)
     obs = PygletObserver()
     obs.set_soccer_battle(battle)
     pyglet.app.run()
@@ -106,4 +114,4 @@ def exemple_tree():
 
 
 if __name__=="__main__":
-    exemple_simple()
+    exemple_interact()

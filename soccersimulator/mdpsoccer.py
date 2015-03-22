@@ -44,6 +44,13 @@ class SoccerAction(object):
 class SoccerState:
     to_save=["_winning_team","score_team1","score_team2","max_steps","cur_step",\
             "cur_battle","battles_count"]
+    cst={"GAME_WIDTH":GAME_WIDTH,"GAME_HEIGHT":GAME_HEIGHT,
+                "GAME_GOAL_HEIGHT":GAME_GOAL_HEIGHT,"PLAYER_RADIUS":PLAYER_RADIUS,
+                "BALL_RADIUS":BALL_RADIUS,"maxPlayerSpeed":maxPlayerSpeed,
+                "maxPlayerAcceleration":maxPlayerAcceleration,"playerBrackConstant":playerBrackConstant,
+                "nbWithoutShoot":nbWithoutShoot,"maxPlayerShoot":maxPlayerShoot,
+                "maxBallAcceleration":maxBallAcceleration,"shootRandomAngle":shootRandomAngle,
+                "ballBrakeSquare":ballBrakeSquare,"ballBrakeConstant":ballBrakeConstant}
     def __init__(self,team1,team2,ball,cst=dict()):
         self.team1=team1
         self.team2=team2
@@ -58,14 +65,6 @@ class SoccerState:
         self.ball=ball
         self.actions_team1=None
         self.actions_team2=None
-
-        self.cst={"GAME_WIDTH":GAME_WIDTH,"GAME_HEIGHT":GAME_HEIGHT,
-                "GAME_GOAL_HEIGHT":GAME_GOAL_HEIGHT,"PLAYER_RADIUS":PLAYER_RADIUS,
-                "BALL_RADIUS":BALL_RADIUS,"maxPlayerSpeed":maxPlayerSpeed,
-                "maxPlayerAcceleration":maxPlayerAcceleration,"playerBrackConstant":playerBrackConstant,
-                "nbWithoutShoot":nbWithoutShoot,"maxPlayerShoot":maxPlayerShoot,
-                "maxBallAcceleration":maxBallAcceleration,"shootRandomAngle":shootRandomAngle,
-                "ballBrakeSquare":ballBrakeSquare,"ballBrakeConstant":ballBrakeConstant}
         self.cst.update(cst)
 
     def __eq__(self,other):
