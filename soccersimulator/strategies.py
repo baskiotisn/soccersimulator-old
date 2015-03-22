@@ -7,6 +7,8 @@ import mdpsoccer
 import pickle
 import os
 import datetime
+import numpy as np
+from sklearn.tree import DecisionTreeClassifier,export_graphviz
 
 def time_stamp():
     return datetime.datetime.now().strftime("%y%m%d-%H%M%S-%f")
@@ -120,3 +122,39 @@ class InteractStrategy(ListStrategy):
         if self.cur_file:
             with open(self.cur_file,"a" if self._append else "wb") as f :
                 pickle.dump(self.states,f,-1)
+
+class TreeIA:
+    def __init__(self,gen_feat=None,strats=None):
+        self.tree=None
+        self.strats=strats
+        self.gen_feat=gen_feat
+    def learn(self,states=None,depth=5,min_samples=2,fn=None):
+        if fn:
+            states=[]
+            with open(fn,"rb") as f:
+                while(1):
+                    try:
+                        states+=pickle.load(f)
+                    except EOFError:
+                        break
+        train_set=np.array([self.gen_feat(s[0],s[1],s[2]) for s in states])
+        label_set=np.array([s[3] for s in states])
+        self.tree=DecisionTreeClassifier(max_depth=depth,min_samples_split=min_samples)
+        self.tree.fit(train_set,label_set)
+    def save(self,fn):
+        with open(fn,"wb") as f:
+            pickle.dump(self.tree,f,-1)
+    def load(self,fn):
+        with open(fn,"rb") as f:
+            self.tree=pickle.load(f)
+    def to_dot(self,fn):
+        export_graphviz(self.tree,out_file=fn)
+
+
+class TreeStrategy(SoccerStrategy):
+    def __init__(self,name,treeia=None):
+        self.name=name
+        self.treeia=treeia
+    def compute_strategy(self,state,player,teamid):
+        strat = self.treeia.tree.predict(self.treeia.gen_feat(state,teamid,player.id))[0]
+        return self.treeia.strats[strat].compute_strategy(state,player,teamid)
