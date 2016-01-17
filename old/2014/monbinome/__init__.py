@@ -1,2 +1,0 @@
-
-from monequipe import teams
