@@ -297,7 +297,9 @@ class MatchWindow(pyglet.window.Window):
         pyglet.window.key.NUM_ADD: lambda w: w._increase_fps(),
         pyglet.window.key.NUM_SUBTRACT: lambda w: w._decrease_fps(),
         pyglet.window.key.NUM_9: lambda w: w._switch_speed(),
-        pyglet.window.key.O : lambda w: w._switch_speed()
+        pyglet.window.key.O : lambda w: w._switch_speed(),
+        pyglet.window.key.N : lambda w: w._switch_manual_step_flag(),
+        pyglet.window.key.M : lambda w: w._switch_manual_step()
     }
     list_msg = ["Touches :", "p -> jouer", "", "m -> switch manuel/auto", "n -> avancement manuel",
                 "+ -> increases fps", "- -> decreases fps", "esc -> sortir"]
@@ -323,6 +325,7 @@ class MatchWindow(pyglet.window.Window):
         self.scores=dict()
         self._rebuild_panel = False
         self._kill = False
+        self._manual_step_flag=False
         pyglet.clock.schedule_interval(self.update,1./25)
 
     def set(self,match,run=True):
@@ -351,7 +354,7 @@ class MatchWindow(pyglet.window.Window):
 
     def play(self):
         if self._tournament:
-            self._tournament.play()
+            self._tournament.play(False)
             return
         if self._match:
             self._match.play(False)
@@ -422,8 +425,12 @@ class MatchWindow(pyglet.window.Window):
 
     def update_round(self,team1,team2,state):
         self.change_state(state)
-        if not self._speed:
+        if not self._speed and not self._manual_step:
             time.sleep(1./self._fps)
+        if self._manual_step:
+            self._manual_step_flag=True
+            while self._manual_step_flag:
+                time.sleep(0.0001)
 
     def change_state(self, state):
         self._state = state.copy()
@@ -433,6 +440,14 @@ class MatchWindow(pyglet.window.Window):
         if self._match:
             return self._match.get_team(i)
         return None
+
+    def _switch_manual_step_flag(self):
+        self._manual_step_flag = False
+
+    def _switch_manual_step(self):
+        self._manual_step = not self._manual_step
+        if not self._manual_step:
+            self._switch_manual_step_flag()
 
     def _switch_hud_names(self):
         self._hud_names = not self._hud_names
