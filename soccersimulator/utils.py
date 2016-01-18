@@ -355,6 +355,17 @@ class Events(object):
 
         return gen()
 
+class Savable(object):
+    def save(self,filename):
+        with open(filename,"w") as f:
+            f.write(self.to_str())\
+
+    @classmethod
+    def load(cls, filename):
+        res = None
+        with open(filename,"r") as f:
+            res = cls.from_str(f.read())
+        return res
 
 class _EventSlot(object):
     def __init__(self, name):

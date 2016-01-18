@@ -5,7 +5,7 @@ import threading
 from collections import namedtuple
 from threading import Lock
 from copy import deepcopy
-from utils import Vector2D, MobileMixin, SoccerEvents, DecodeException
+from utils import Vector2D, MobileMixin, SoccerEvents, DecodeException, Savable
 import settings
 import random
 import time
@@ -15,7 +15,7 @@ import time
 ###############################################################################
 
 
-class SoccerAction(object):
+class SoccerAction(Savable):
     """ Action d'un joueur : comporte un vecteur acceleration et un vecteur shoot.
     """
     def __init__(self, acceleration=Vector2D(), shoot=Vector2D()):
@@ -140,7 +140,7 @@ class AbstractStrategy:
 # Configuration
 #########################    e######################################################
 
-class Configuration(object):
+class Configuration(Savable):
     """ Represente la configuration d'un joueur : un etat  mobile (position, vitesse), et une action SoccerAction
     """
     def __init__(self, **kwargs):
@@ -266,7 +266,7 @@ class Configuration(object):
 # SoccerState
 ###############################################################################
 
-class SoccerState(object):
+class SoccerState(Savable):
     """ Etat d'un tour du jeu. Contient la balle (MobileMixin), l'ensemble des configurations des joueurs, le score et
     le numero de l'etat.
     """
@@ -473,7 +473,7 @@ class SoccerState(object):
 
 Player = namedtuple("Player", ["name", "strategy"])
 
-class SoccerTeam(object):
+class SoccerTeam(Savable):
     """ Equipe de foot. Comporte une  liste ordonnee de nom de joueurs et leur strategie.
     """
     def __init__(self, name=None, players=None, login=None):
@@ -560,7 +560,7 @@ class SoccerTeam(object):
         return deepcopy(self)
 
 
-class SoccerMatch(object):
+class SoccerMatch(Savable):
     """ Match de foot.
     """
     def __init__(self, team1=None, team2=None,max_steps=settings.MAX_GAME_STEPS):
@@ -728,7 +728,7 @@ class SoccerMatch(object):
 
 
 @total_ordering
-class Score(object):
+class Score(Savable):
     def __init__(self):
         self.win = 0
         self.loose = 0
@@ -786,7 +786,7 @@ class Score(object):
         res.win, res.draw, res.loose, res.gf, res.ga = [int(x) for x in strg.lstrip("(").rstrip(")").split(",")]
         return res
 
-class SoccerTournament(object):
+class SoccerTournament(Savable):
 
     TeamTuple = namedtuple("TeamTuple",["team","score"])
     SEP_MATCH="#####MATCH#####\n"
@@ -802,6 +802,7 @@ class SoccerTournament(object):
         self.verbose = True
         self._kill = False
         self._replay = False
+        self._join = True
 
     def add_team(self,team, score = None):
         if score is None:
@@ -841,10 +842,11 @@ class SoccerTournament(object):
     def nb_matches(self):
         return len(self._matches)
 
-    def play(self):
+    def play(self,join=True):
         if self._on_going:
             return
         self._on_going = True
+        self._join = join
         self._list_matches = sorted(self._matches.items())
         self.play_next()
 
@@ -863,7 +865,7 @@ class SoccerTournament(object):
             return
         (self.cur_i, self.cur_j), self.cur_match=self._list_matches.pop(0)
         self.cur_match._listeners += self
-        self.cur_match.play(False)
+        self.cur_match.play(self._join)
 
     def find_team(self,name):
         for i,t in enumerate(self._teams):
