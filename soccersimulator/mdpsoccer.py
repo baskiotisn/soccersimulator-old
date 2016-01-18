@@ -455,15 +455,15 @@ class SoccerState(object):
             self._configs[(2, 0)] = Configuration.from_position(rows[3], quarters[0])
             self._configs[(2, 1)] = Configuration.from_position(rows[3], quarters[2])
         if nb_players_1 == 4:
-            self._configs[(1, 0)].from_position(rows[0], quarters[0])
-            self._configs[(1, 1)].from_position(rows[0], quarters[2])
-            self._configs[(1, 2)].fom_position(rows[1], quarters[0])
-            self._configs[(1, 3)].from_position(rows[1], quarters[2])
+            self._configs[(1, 0)] = Configuration.from_position(rows[0], quarters[0])
+            self._configs[(1, 1)] =  Configuration.from_position(rows[0], quarters[2])
+            self._configs[(1, 2)] = Configuration.from_position(rows[1], quarters[0])
+            self._configs[(1, 3)] = Configuration.from_position(rows[1], quarters[2])
         if nb_players_2 == 4:
-            self._configs[(2, 0)].from_position(rows[2], quarters[0])
-            self._configs[(2, 1)].from_position(rows[2], quarters[2])
-            self._configs[(2, 2)].from_position(rows[3], quarters[0])
-            self._configs[(2, 3)].from_position(rows[3], quarters[2])
+            self._configs[(2, 0)] = Configuration.from_position(rows[2], quarters[0])
+            self._configs[(2, 1)] = Configuration.from_position(rows[2], quarters[2])
+            self._configs[(2, 2)] = Configuration.from_position(rows[3], quarters[0])
+            self._configs[(2, 3)] = Configuration.from_position(rows[3], quarters[2])
         self._ball = MobileMixin.from_position(settings.GAME_WIDTH / 2, settings.GAME_HEIGHT / 2)
         self._winning_team=0
 
