@@ -599,7 +599,7 @@ class SoccerMatch(object):
         :param join: attend que le match soit fini avant de sortir
         :return:
         """
-        if not self._thread:
+        if not self._thread or not self._thread.isAlive():
             self._thread = threading.Thread(target=self._play)
             self._thread.start()
             if join:
@@ -610,7 +610,7 @@ class SoccerMatch(object):
     def reset(self):
         self.kill()
         self._state = None
-        self._step_replay=0
+        self._step_replay = 0
         if not self._replay:
             self._states = []
         self._thread = None
@@ -630,8 +630,9 @@ class SoccerMatch(object):
         """ arrete le match
         :return:
         """
-        self._kill=True
+        self._kill = True
         time.sleep(0.1)
+        self._kill = False
 
     def _next_step(self):
         self._lock.acquire()
@@ -688,6 +689,7 @@ class SoccerMatch(object):
                 self._states.append(self.state)
             self._listeners.update_round(self.team1, self.team2, self.state)
         self._on_going = False
+        self._replay = True
         self._listeners.end_match(self.team1, self.team2, self.state)
 
     def send_to_strategies(self, cmd):
@@ -855,6 +857,7 @@ class SoccerTournament(object):
     def play_next(self):
         if len(self._list_matches)==0 or self._kill:
             self._on_going = False
+            self._kill = False
             if self.verbose:
                 print("Fin tournoi")
             return

@@ -468,7 +468,6 @@ class MatchWindow(pyglet.window.Window):
 
     def on_close(self):
         pyglet.window.Window.on_close(self)
-        self.exit()
         return pyglet.event.EVENT_HANDLED
 
     def exit(self):
@@ -477,6 +476,7 @@ class MatchWindow(pyglet.window.Window):
         if hasattr(self._tournament, "kill"):
             self._tournament.kill()
         self._kill = True
+        pyglet.clock.unschedule(self.update)
         self.close()
         pyg_stop()
         return pyglet.event.EVENT_HANDLED
