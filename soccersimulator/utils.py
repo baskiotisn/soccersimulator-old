@@ -4,8 +4,6 @@ import math
 import string
 import random
 
-
-
 valid_chars = frozenset("%s%s%s" % (string.ascii_letters, string.digits, "_"))
 
 
@@ -21,7 +19,7 @@ class Vector2D(object):
     angle et norme.
     """
 
-    def __init__(self, x=0, y=0, angle=None, norm=None):
+    def __init__(self, x=0., y=0., angle=None, norm=None):
         """ create a vector
         :param x: 1ere coordonnee
         :param y: 2nd coordonnee
@@ -269,6 +267,7 @@ class Vector2D(object):
 class MobileMixin(object):
     """ Mixin pour représenter un objet mobile. Dispose d'un vecteur position et d'un vecteur vitesse.
     """
+
     def __init__(self, position=None, vitesse=None, *args, **kwargs):
         """
         :param position: position du mobile (Vector2D)
@@ -276,7 +275,7 @@ class MobileMixin(object):
         :return:
         """
         if position is None:
-            position=Vector2D()
+            position = Vector2D()
         if vitesse is None:
             vitesse = Vector2D()
         self._position = position
@@ -355,15 +354,16 @@ class Events(object):
 
         return gen()
 
+
 class Savable(object):
-    def save(self,filename):
-        with open(filename,"w") as f:
+    def save(self, filename):
+        with open(filename, "w") as f:
             f.write(self.to_str())\
 
     @classmethod
     def load(cls, filename):
         res = None
-        with open(filename,"r") as f:
+        with open(filename, "r") as f:
             res = cls.from_str(f.read())
         return res
 
@@ -397,7 +397,7 @@ class SoccerEvents(Events):
             try:
                 e += getattr(f, str(e))
             except:
-               pass
+                pass
         return self
 
     def __isub__(self, f):

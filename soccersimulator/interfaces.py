@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 import pyglet
-#pyglet.options["debug_gl"]=True
-#pyglet.options["debug_trace"]=True
-#pyglet.options["debug_gl_trace"]=True
+# pyglet.options["debug_gl"]=True
+# pyglet.options["debug_trace"]=True
+# pyglet.options["debug_gl_trace"]=True
 
 import math
 from pyglet import gl
@@ -190,7 +190,7 @@ class TextSprite:
             print(e, traceback.print_exc())
         self.scale = scale
         self.position = position
-        self._ready=True
+        self._ready = True
 
     def draw(self):
         try:
@@ -264,18 +264,19 @@ class Panel:
     def __init__(self):
         self.scale = 0.055
         self._is_ready = True
-        self.sprites=[]
+        self.sprites = []
 
     def from_list(self, l):
         self._is_ready = False
         delta = -PANEL_DELTA
         self.sprites = []
         for i, s in enumerate(l):
-            t1 = TextSprite("%d - %s" %(i + 1, s[1]), color=PANEL_TXT_COLOR, scale=self.scale, position=Vector2D(settings.GAME_WIDTH,
-                                                   settings.GAME_HEIGHT + HUD_HEIGHT + delta))
-            t2 = TextSprite(s[2], color = PANEL_SCORE_COLOR, scale=self.scale, position=Vector2D(settings.GAME_WIDTH
-                                   + PANEL_WIDTH * 1 / 4.,
-                                    settings.GAME_HEIGHT + HUD_HEIGHT + delta - PANEL_DELTA / 2.))
+            t1 = TextSprite("%d - %s" % (i + 1, s[1]), color=PANEL_TXT_COLOR, scale=self.scale,
+                            position=Vector2D(settings.GAME_WIDTH,
+                                              settings.GAME_HEIGHT + HUD_HEIGHT + delta))
+            t2 = TextSprite(s[2], color=PANEL_SCORE_COLOR, scale=self.scale, position=Vector2D(settings.GAME_WIDTH
+                                                                                               + PANEL_WIDTH * 1 / 4.,
+                                                                                               settings.GAME_HEIGHT + HUD_HEIGHT + delta - PANEL_DELTA / 2.))
             self.sprites.append([t1, t2])
             delta -= PANEL_DELTA
             self._is_ready = True
@@ -297,9 +298,9 @@ class MatchWindow(pyglet.window.Window):
         pyglet.window.key.NUM_ADD: lambda w: w._increase_fps(),
         pyglet.window.key.NUM_SUBTRACT: lambda w: w._decrease_fps(),
         pyglet.window.key.NUM_9: lambda w: w._switch_speed(),
-        pyglet.window.key.O : lambda w: w._switch_speed(),
-        pyglet.window.key.N : lambda w: w._switch_manual_step_flag(),
-        pyglet.window.key.M : lambda w: w._switch_manual_step()
+        pyglet.window.key.O: lambda w: w._switch_speed(),
+        pyglet.window.key.N: lambda w: w._switch_manual_step_flag(),
+        pyglet.window.key.M: lambda w: w._switch_manual_step()
     }
     list_msg = ["Touches :", "p -> jouer", "", "m -> switch manuel/auto", "n -> avancement manuel",
                 "+ -> increases fps", "- -> decreases fps", "esc -> sortir"]
@@ -320,27 +321,27 @@ class MatchWindow(pyglet.window.Window):
         self._manual_step=False
         self._create_draw = True
         self._to_update = True
-        self._speed=False
-        self._tournament=None
-        self.scores=dict()
+        self._speed = False
+        self._tournament = None
+        self.scores = dict()
         self._rebuild_panel = False
         self._kill = False
-        self._manual_step_flag=False
-        pyglet.clock.schedule_interval(self.update,1./25)
+        self._manual_step_flag = False
+        pyglet.clock.schedule_interval(self.update, 1. / 25)
 
-    def set(self,match,run=True):
-        if hasattr(match,"nb_matches"):
-            self._tournament=match
+    def set(self, match, run=True):
+        if hasattr(match, "nb_matches"):
+            self._tournament = match
             self._tournament._listeners += self
-            self._match=None
+            self._match = None
         else:
             self._match = match
             self._match._listeners += self
-            self._create_draw=True
+            self._create_draw = True
         if run:
             pyg_start()
 
-    def update(self,dt=None):
+    def update(self, dt=None):
         self.render()
 
     def get_welcome(self):
@@ -389,8 +390,9 @@ class MatchWindow(pyglet.window.Window):
                 if self._to_update:
                     self._update_sprites()
                 if self._rebuild_panel:
-                    self.panel.from_list(sorted([(score.points,k[0],score.str_nocolor()) for k,score in self.scores.items()],
-                                    reverse=True))
+                    self.panel.from_list(
+                            sorted([(score.points, k[0], score.str_nocolor()) for k, score in self.scores.items()],
+                                   reverse=True))
 
                 gl.glClear(gl.GL_COLOR_BUFFER_BIT)
                 self._background.draw()
@@ -423,12 +425,12 @@ class MatchWindow(pyglet.window.Window):
             self._sprites["ball"].vitesse = self.state.ball.vitesse
         self._to_update = False
 
-    def update_round(self,team1,team2,state):
+    def update_round(self, team1, team2, state):
         self.change_state(state)
         if not self._speed and not self._manual_step:
-            time.sleep(1./self._fps)
+            time.sleep(1. / self._fps)
         if self._manual_step:
-            self._manual_step_flag=True
+            self._manual_step_flag = True
             while self._manual_step_flag:
                 time.sleep(0.0001)
 
@@ -507,10 +509,10 @@ class MatchWindow(pyglet.window.Window):
             self._match = self._tournament.cur_match
         self._create_draw = True
         self.change_state(self._match.state)
-        if (team1.name,team1.login) not in self.scores:
-            self.scores[(team1.name,team1.login)] = Score()
-        if (team2.name,team2.login) not in self.scores:
-            self.scores[(team2.name,team2.login)] = Score()
+        if (team1.name, team1.login) not in self.scores:
+            self.scores[(team1.name, team1.login)] = Score()
+        if (team2.name, team2.login) not in self.scores:
+            self.scores[(team2.name, team2.login)] = Score()
 
     def begin_round(self, *args, **kwargs):
         return
@@ -519,14 +521,14 @@ class MatchWindow(pyglet.window.Window):
         return
 
     def end_match(self, team1, team2, state, *args, **kwargs):
-        self.scores[(team1.name,team1.login)].add(state.score_team1, state.score_team2)
-        self.scores[(team2.name,team2.login)].add(state.score_team2, state.score_team1)
+        self.scores[(team1.name, team1.login)].add(state.score_team1, state.score_team2)
+        self.scores[(team2.name, team2.login)].add(state.score_team2, state.score_team1)
         self._rebuild_panel = True
-
 
 
 def pyg_start():
     pyglet.app.run()
+
 
 def pyg_stop():
     pyglet.app.exit()
