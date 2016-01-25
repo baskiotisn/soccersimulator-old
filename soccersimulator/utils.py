@@ -248,6 +248,9 @@ class Vector2D(object):
             return Vector2D(self.x * other.x, self.y * other.y)
         return Vector2D(self.x * other, self.y * other)
 
+    def __rmul__(self, other):
+        return self.__mul__(other)
+
     def __idiv__(self, other):
         if isinstance(other, Vector2D):
             self.x /= other.x
@@ -261,7 +264,6 @@ class Vector2D(object):
         if isinstance(other, Vector2D):
             return Vector2D(self.x / other.x, self.y / other.y)
         return Vector2D(self.x / other, self.y / other)
-
 
 
 class MobileMixin(object):
@@ -323,6 +325,10 @@ class MobileMixin(object):
 
     def __str__(self):
         return "%s%s" % (self.position, self.vitesse)
+
+    def __repr__(self):
+        return self.__str__()
+
 
 class Events(object):
     def __init__(self):
