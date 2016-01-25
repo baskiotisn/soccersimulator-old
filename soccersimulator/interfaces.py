@@ -465,6 +465,13 @@ class MatchWindow(pyglet.window.Window):
             handler = self.key_handlers.get(symbol, lambda w: None)
             handler(self)
             return pyglet.event.EVENT_HANDLED
+        if self._match and hasattr(self._match,"send_to_strategies"):
+            k=pyglet.window.key.symbol_string(symbol)
+            if modifiers & pyglet.window.key.MOD_SHIFT:
+                k=k.capitalize()
+            else:
+                k=k.lower()
+            self._match.send_to_strategies(k)
         return pyglet.event.EVENT_UNHANDLED
 
     def on_resize(self, width, height):
