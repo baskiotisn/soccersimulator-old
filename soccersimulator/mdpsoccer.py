@@ -223,7 +223,11 @@ class Configuration(Savable):
         """
         :return: Vector2D position du joueur
         """
-        return self._state.position.copy()
+        return self._state.position
+
+    @position.setter
+    def position(self,v):
+        self._state.position = v
 
     @property
     def vitesse(self):
@@ -232,6 +236,10 @@ class Configuration(Savable):
         """
         return self._state.vitesse.norm_max(settings.maxPlayerSpeed)
 
+    @vitesse.setter
+    def vitesse(self,v):
+        self._state.vitesse = v
+
     @property
     def acceleration(self):
         """
@@ -239,12 +247,19 @@ class Configuration(Savable):
         """
         return self._action.acceleration.norm_max(settings.maxPlayerAcceleration)
 
+    @acceleration.setter
+    def acceleration(self,v):
+        self._action.acceleration = v
     @property
     def shoot(self):
         """ Vector2D Action shoot du joueur
         :return:
         """
         return self._action.shoot.norm_max(settings.maxPlayerShoot)
+
+    @shoot.setter
+    def shoot(self,v):
+        self._action.shoot = v
 
     @property
     def state(self):
