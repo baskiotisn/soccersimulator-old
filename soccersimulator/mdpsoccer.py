@@ -64,7 +64,7 @@ class SoccerAction(Savable):
 # SoccerStrategy
 ##############################################################################
 
-class AbstractStrategy:
+class BaseStrategy:
     """ Strategie : la fonction compute_strategie est interroge a chaque tour de jeu, elle doit retourner un objet
     SoccerAction
     """
@@ -134,6 +134,64 @@ class AbstractStrategy:
 
     def __repr__(self):
         return self.__str__()
+
+AbstractStrategy = BaseStrategy
+
+class KeyboardStrategy(BaseStrategy):
+
+    def __init__(self,name="Commande",fn=None):
+        BaseStrategy.__init__(self,name)
+        self.fn = fn
+        self.dic_keys=dict()
+        self.cur = None
+        self.states=[]
+        self.state=None
+
+    def add(self,key,strategy):
+        self.dic_keys[key]=strategy
+        if not self.cur:
+            self.cur = key
+            self.name = strategy.name
+
+    def compute_strategy(self,state,id_team,id_player):
+        self.state = state
+        return self.dic_keys[self.cur].compute_strategy(state,id_team,id_player)
+
+    def listen(self,key,teamid,player):
+        if not self.state:
+            return
+        if key in self.dic_keys.keys():
+            self.cur=key
+            self.name = self.dic_keys[self.cur].name
+            self.states.append((self.state, (teamid,player,self.name)))
+
+    def end_match(self, team1, team2, state):
+        self.write()
+
+    def to_str(self):
+        return "\n".join("%d,%d,%s|%s" % (k[0],k[1],k[2],s.to_str()) for s,k in self.states)
+
+    def write(self,fn=None):
+        if not fn:
+            fn = self.fn
+        if not fn:
+            return
+        with file(fn,"w") as f:
+            f.write(self.to_str()+"\n")
+
+    @classmethod
+    def from_str(cls,strg):
+        res = []
+        for l in strg.split("\n") :
+            if len(l):
+                info=l[:l.index("|")].split(",")
+                state=l[l.index("|")+1:]
+                res.append(((int(info[0]),int(info[1]),info[2]),SoccerState.from_str(state)))
+        return res
+    @classmethod
+    def read(cls,fn):
+        with open(fn) as f:
+            return cls.from_str(f.read())
 
 
 ###############################################################################
@@ -373,6 +431,10 @@ class SoccerState(Savable):
             res._configs[(int(cfg[0]), int(cfg[1]))] = Configuration.from_str(cfg[2])
         return res
 
+    @classmethod
+    def list_from_str(cls,strg):
+        return [cls.from_str(s) for s in strg.split("\n") if len(s)>0]
+
     def apply_actions(self, actions=None):
         if not actions:
             return
@@ -478,7 +540,7 @@ Player = namedtuple("Player", ["name", "strategy"])
 
 
 class SoccerTeam(Savable):
-    """ Equipe de foot. Comporte une  liste ordonnee de nom de joueurs et leur strategie.
+    """ Equipe de foot. Comporte une  liste ordonnee de  Player.
     """
 
     def __init__(self, name=None, players=None, login=None):
@@ -702,9 +764,12 @@ class SoccerMatch(Savable):
 
     def send_to_strategies(self, cmd):
         self._lock.acquire()
-        for s in self.team1.strategies + self.team2.strategies:
+        for (i,s) in enumerate(self.team1.strategies):
             if hasattr(s, "listen"):
-                s.listen(cmd)
+                s.listen(cmd,1,i)
+        for (i,s) in enumerate(self.team2.strategies):
+            if hasattr(s, "listen"):
+                s.listen(cmd,2,i)
         self._lock.release()
 
     def __str__(self):
