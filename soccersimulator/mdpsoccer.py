@@ -36,8 +36,6 @@ class SoccerAction(Savable):
     def __str__(self):
         return self.to_str()
 
-    def __repr__(self):
-        return self.__str__()
 
     def __eq__(self, other):
         return (other.acceleration == self.acceleration) and (other.shoot == self.shoot)
@@ -133,7 +131,7 @@ class BaseStrategy:
         return self.name
 
     def __repr__(self):
-        return self.__str__()
+        return str(self.__class__).split(".")[-1]+": "+ self.__str__()
 
 AbstractStrategy = BaseStrategy
 
@@ -195,8 +193,32 @@ class KeyboardStrategy(BaseStrategy):
 
 
 ###############################################################################
+# Ball
+###############################################################################
+class Ball(MobileMixin):
+    def __init__(self,*args,**kwargs):
+        MobileMixin.__init__(self,*args,**kwargs)
+
+    def next(self,sum_of_shoots):
+        self.vitesse.norm = self.vitesse.norm - settings.ballBrakeSquare * self.vitesse.norm ** 2 - settings.ballBrakeConstant * self.vitesse.norm
+        ## decomposition selon le vecteur unitaire de ball.speed
+        snorm = sum_of_shoots.norm
+        if snorm > 0:
+            u_s = sum_of_shoots.copy()
+            u_s.normalize()
+            u_t = Vector2D(-u_s.y, u_s.x)
+            speed_abs = abs(self.vitesse.dot(u_s))
+            speed_ortho = self.vitesse.dot(u_t)
+            speed = Vector2D(speed_abs * u_s.x - speed_ortho * u_s.y, speed_abs * u_s.y + speed_ortho * u_s.x)
+            speed += sum_of_shoots
+            self.vitesse = speed
+        self.vitesse = self.vitesse.norm_max(settings.maxBallAcceleration)
+        self.position += self.vitesse
+
+
+###############################################################################
 # Configuration
-#########################    e######################################################
+###############################################################################
 
 class Configuration(Savable):
     """ Represente la configuration d'un joueur : un etat  mobile (position, vitesse), et une action SoccerAction
@@ -213,9 +235,6 @@ class Configuration(Savable):
         self.__dict__.update(kwargs)
 
     def __str__(self):
-        return self.to_str()
-
-    def __repr__(self):
         return self.to_str()
 
     @property
@@ -275,12 +294,13 @@ class Configuration(Savable):
         """
         return self._action
 
-    def next(self, ball, action):
+    def next(self, ball, action=None):
         """ Calcul le prochain etat en fonction de l'action et de la position de la balle
         :param ball:
         :param action:
         :return: Action shoot effectue
         """
+
         self._action = action.copy()
         self._state.vitesse *= (1 - settings.playerBrackConstant)
         self._state.vitesse = (self._state.vitesse + self.acceleration).norm_max(settings.maxPlayerSpeed)
@@ -296,14 +316,20 @@ class Configuration(Savable):
         self._reset_shoot()
         if self._state.position.distance(ball.position) > (settings.PLAYER_RADIUS + settings.BALL_RADIUS):
             return Vector2D()
-        angle_factor = 1. - abs(math.cos((self.vitesse.angle - self.shoot.angle) / 2.))
-        dist_factor = 1. - self._state.position.distance(ball.position) / (
-            settings.PLAYER_RADIUS + settings.BALL_RADIUS)
-        shoot = self.shoot * (1 - angle_factor * 0.25 - dist_factor * 0.25)
-        shoot.angle = shoot.angle + (2 * random.random() - 1.) * (
-            angle_factor + dist_factor) / 2. * settings.shootRandomAngle * math.pi / 2.
-        self._action = SoccerAction()
+        return self._rd_angle(self.shoot,(self.vitesse.angle-self.shoot.angle),self.position.distance(ball.position)/(settings.PLAYER_RADIUS+settings.BALL_RADIUS))
+
+    @staticmethod
+    def _rd_angle(shoot,dangle,dist):
         return shoot
+        eliss = lambda x, alpha: (math.exp(alpha*x)-1)/(math.exp(alpha)-1)
+        dangle = abs((dangle+math.pi*2) %(math.pi*2) -math.pi)
+        dangle_factor = eliss(1.-max(dangle-math.pi/2,0)/(math.pi/2.),10)
+        norm_factor = 1-eliss(shoot.norm/settings.maxPlayerShoot,3)
+        dist_factor = 1-eliss(dist,2)
+        angle_prc = dangle_factor*norm_factor*dist_factor
+        return Vector2D(norm =shoot.norm,angle = shoot.angle +2*(random.random()-0.5)*angle_prc*settings.shootRandomAngle*math.pi/2.)
+        norm_prc = (1-dangle_factor)*(1-dist_factor)*0.3
+        return Vector2D(norm=shoot.norm*(1-norm_prc), angle=shoot.angle+2*(random.random()-0.5) *angle_prc*settings.shootRandomAngle*math.pi/2.)
 
     def can_shoot(self):
         """ Le joueur peut-il shooter
@@ -345,26 +371,12 @@ class SoccerState(Savable):
     """
     def __init__(self, **kwargs):
         self._configs = kwargs.pop('configs', dict())
-        self._ball = kwargs.pop('ball', MobileMixin())
+        self.ball = kwargs.pop('ball', Ball())
         self._score = kwargs.pop('score', {1: 0, 2: 0})
-        self._step = kwargs.pop('step', 0)
+        self.step = kwargs.pop('step', 0)
         self.max_steps = kwargs.pop('max_steps', settings.MAX_GAME_STEPS)
         self._winning_team = kwargs.pop('winning_team', 0)
         self.__dict__.update(kwargs)
-
-    @property
-    def ball(self):
-        """
-        :return: MobileMixin de la balle
-        """
-        return self._ball
-
-    @property
-    def step(self):
-        """
-        :return: numero de l'etat courant
-        """
-        return self._step
 
     def player(self, id_team, id_player):
         """ renvoie la configuration du joueur
@@ -399,7 +411,7 @@ class SoccerState(Savable):
 
     def nb_players(self, team):
         """ nombre de joueurs de la team team
-        :param team: 1 ou 2
+        :param team: 1 ou 2prit fauve
         :return:
         """
         return len([x for x in self._configs.keys() if x[0] == team])
@@ -430,7 +442,7 @@ class SoccerState(Savable):
         return deepcopy(self)
 
     def to_str(self):
-        return "%d|%d|%d|%d|%d|%s|%s" % (self._step, self.max_steps, self.get_score_team(1), self.get_score_team(2),
+        return "%d|%d|%d|%d|%d|%s|%s" % (self.step, self.max_steps, self.get_score_team(1), self.get_score_team(2),
                                          self._winning_team, self.ball,
                                          "|".join("%d:%d:%s" % (k[0], k[1], v.to_str()) for k, v in
                                                   self._configs.items()))
@@ -440,7 +452,7 @@ class SoccerState(Savable):
         l_pos = strg.split("|")
         res = cls(step=int(l_pos[0]), max_steps=int(l_pos[1]), score={1: int(l_pos[2]), 2: int(l_pos[3])},
                   winning_team=int(l_pos[4]))
-        res._ball = MobileMixin.from_str(l_pos[5])
+        res.ball = Ball.from_str(l_pos[5])
         for p in l_pos[6:]:
             cfg = p.split(":")
             res._configs[(int(cfg[0]), int(cfg[1]))] = Configuration.from_str(cfg[2])
@@ -451,27 +463,13 @@ class SoccerState(Savable):
         return [cls.from_str(s) for s in strg.split("\n") if len(s)>0]
 
     def apply_actions(self, actions=None):
-        if not actions:
-            return
         sum_of_shoots = Vector2D()
-        for k, c in self._configs.items():
-            if k in actions:
-                sum_of_shoots += c.next(self.ball, actions[k])
-        self.ball.vitesse.norm = self.ball.vitesse.norm - settings.ballBrakeSquare * self.ball.vitesse.norm ** 2 - settings.ballBrakeConstant * self.ball.vitesse.norm
-        ## decomposition selon le vecteur unitaire de ball.speed
-        snorm = sum_of_shoots.norm
-        if snorm > 0:
-            u_s = sum_of_shoots.copy()
-            u_s.normalize()
-            u_t = Vector2D(-u_s.y, u_s.x)
-            speed_abs = abs(self.ball.vitesse.dot(u_s))
-            speed_ortho = self.ball.vitesse.dot(u_t)
-            speed = Vector2D(speed_abs * u_s.x - speed_ortho * u_s.y, speed_abs * u_s.y + speed_ortho * u_s.x)
-            speed += sum_of_shoots
-            self.ball.vitesse = speed
-        self.ball.vitesse = self.ball.vitesse.norm_max(settings.maxBallAcceleration)
-        self.ball.position += self.ball.vitesse
-        self._step += 1
+        if actions:
+            for k, c in self._configs.items():
+                if k in actions:
+                    sum_of_shoots += c.next(self.ball, actions[k])
+        self.ball.next(sum_of_shoots)
+        self.step += 1
         if self._is_ball_inside_goal():
             self._do_win(2 if self.ball.position.x <= 0 else 1)
             return
@@ -489,9 +487,6 @@ class SoccerState(Savable):
             self.ball.vitesse.y = -self.ball.vitesse.y
 
     def __str__(self):
-        return self.to_str()
-
-    def __repr__(self):
         return self.to_str()
 
     def _do_win(self, i):
@@ -544,7 +539,7 @@ class SoccerState(Savable):
             self._configs[(2, 1)] = Configuration.from_position(rows[2], quarters[2])
             self._configs[(2, 2)] = Configuration.from_position(rows[3], quarters[0])
             self._configs[(2, 3)] = Configuration.from_position(rows[3], quarters[2])
-        self._ball = MobileMixin.from_position(settings.GAME_WIDTH / 2, settings.GAME_HEIGHT / 2)
+        self.ball = Ball.from_position(settings.GAME_WIDTH / 2, settings.GAME_HEIGHT / 2)
         self._winning_team = 0
 
 ###############################################################################
@@ -586,6 +581,9 @@ class SoccerTeam(Savable):
         :return: le login
         """
         return self._login if self._login else ""
+    @login.setter
+    def login(self,v):
+        self._login = v
 
     def player_name(self, idx):
         """
@@ -627,9 +625,6 @@ class SoccerTeam(Savable):
     def __str__(self):
         return self.to_str()
 
-    def __repr__(self):
-        return self.to_str()
-
     def to_str(self):
         return "%s|%s" % (self.name, "|".join("%s|%s" % (p, s) for (p, s) in zip(self.players_name, self.strategies)))
 
@@ -647,7 +642,7 @@ class SoccerMatch(Savable):
     """ Match de foot.
     """
 
-    def __init__(self, team1=None, team2=None, max_steps=settings.MAX_GAME_STEPS):
+    def __init__(self, team1=None, team2=None, max_steps=settings.MAX_GAME_STEPS, states = None):
         """
         :param team1: premiere equipe
         :param team2: deuxieme equipe
@@ -656,20 +651,33 @@ class SoccerMatch(Savable):
         self._team1, self._team2, self.max_steps = team1, team2, max_steps
         self._listeners = SoccerEvents()
         self._state = None  # SoccerState.create_initial_state(self._team1.nb_players,self._team2.nb_players)
-        self._states = []  # [self.state]
         self._thread = None
         self._on_going = False
         self._lock = Lock()
         self._kill = False
         self._replay = False
         self._step_replay = 0
+        self._states = []  # [self.state]
+        if states:
+            self.states = states
 
     @property
     def state(self):
         """
         :return: etat courant
         """
-        return self._state.copy()
+        return self._state
+
+    @property
+    def states(self):
+        return self._states
+
+    @states.setter
+    def states(self,list_states):
+        self._states=list_states
+        self._state = self._states[0]
+        self._replay = True
+        self._on_going = False
 
     @property
     def team1(self):
@@ -779,19 +787,18 @@ class SoccerMatch(Savable):
 
     def send_to_strategies(self, cmd):
         self._lock.acquire()
-        for (i,s) in enumerate(self.team1.strategies):
-            if hasattr(s, "listen"):
-                s.listen(cmd,1,i)
-        for (i,s) in enumerate(self.team2.strategies):
-            if hasattr(s, "listen"):
-                s.listen(cmd,2,i)
+        if self.team1:
+            for (i,s) in enumerate(self.team1.strategies):
+                if hasattr(s, "listen"):
+                    s.listen(cmd,1,i)
+        if self.team2:
+            for (i,s) in enumerate(self.team2.strategies):
+                if hasattr(s, "listen"):
+                    s.listen(cmd,2,i)
         self._lock.release()
 
     def __str__(self):
-        return self.to_str()
-
-    def __repr__(self):
-        return self.to_str()
+        return "%s-%s (%d,%d)" %(self.team1,self.team2,self.get_score(1),self.get_score(2))
 
     def copy(self):
         return deepcopy(self)
@@ -878,7 +885,7 @@ class SoccerTournament(Savable):
     TeamTuple = namedtuple("TeamTuple", ["team", "score"])
     SEP_MATCH = "#####MATCH#####\n"
 
-    def __init__(self, nb_players=None, max_steps=settings.MAX_GAME_STEPS, retour=True):
+    def __init__(self, nb_players=None, max_steps=settings.MAX_GAME_STEPS, retour=True,verbose=True):
         self.nb_players, self.max_steps, self._retour = nb_players, max_steps, retour
         self._matches = dict()
         self._teams = []
@@ -886,7 +893,7 @@ class SoccerTournament(Savable):
         self.cur_match, self._list_matches = None, None
         self._over, self._on_going = False, False
         self.cur_i, self.cur_j = -1, -1
-        self.verbose = True
+        self.verbose = verbose
         self._kill = False
         self._replay = False
         self._join = True
@@ -978,6 +985,9 @@ class SoccerTournament(Savable):
         res = ["\033[92m%s\033[0m (\033[93m%s\033[m) : %s" % (team.name, team.login, str(score)) for score, team in sc]
         return "\033[93m***\033[0m \033[95m Resultats pour le tournoi \033[92m%d joueurs\033[0m : \033[93m***\33[0m \n\t%s\n\n" % \
                (self.nb_teams, "\n\t".join(res))
+
+    def __str__(self):
+        return "Tournoi %d joueurs,  %d equipes, %d matches" %(self.nb_players,self.nb_teams,self.nb_matches)
 
     def to_str(self):
         res = "%d|%d|%d\n" % (

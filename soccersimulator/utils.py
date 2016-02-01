@@ -13,8 +13,27 @@ def clean_fn(fn):
 
 class DecodeException(Exception): pass
 
+class Savable(object):
+    def save(self, filename):
+        with open(filename, "w") as f:
+            f.write(self.to_str())\
 
-class Vector2D(object):
+    @classmethod
+    def load(cls, filename):
+        res = None
+        with open(filename, "r") as f:
+            res = cls.from_str(f.read())
+        return res
+
+    def __repr__(self):
+        return str(self.__class__).split(".")[-1]+": "+self.__str__()
+
+    def to_str(self):
+        pass
+
+
+
+class Vector2D(Savable):
     """ Vecteur 2D : peut etre creer soit par ses coordonnees (x,y) soit par ses coordonnees polaire
     angle et norme.
     """
@@ -90,6 +109,7 @@ class Vector2D(object):
         """
         self.x = v.x
         self.y = v.y
+        return self
 
     def random(self, low=0., high=1.):
         """
@@ -99,6 +119,7 @@ class Vector2D(object):
         """
         self.x = random.random() * (high - low) + low
         self.y = random.random() * (high - low) + low
+        return self
 
     def distance(self, v):
         """ distance au vecteur
@@ -120,6 +141,7 @@ class Vector2D(object):
         n = self.norm
         if n != 0:
             self *= 1. / n
+        return self
 
     def scale(self, a):
         """
@@ -128,6 +150,7 @@ class Vector2D(object):
         """
         self.x *= a
         self.y *= a
+        return self
 
     def norm_max(self, n):
         """ Normallise le vecteur a la norme n si supéroeir
@@ -200,8 +223,6 @@ class Vector2D(object):
     def __str__(self):
         return "(%f,%f)" % (self.x, self.y)
 
-    def __repr__(self):
-        return "Vector2D%s" % self.__str__()
 
     def __eq__(self, other):
         return (other.x == self.x) and (other.y == self.y)
@@ -359,19 +380,6 @@ class Events(object):
                     yield val
 
         return gen()
-
-
-class Savable(object):
-    def save(self, filename):
-        with open(filename, "w") as f:
-            f.write(self.to_str())\
-
-    @classmethod
-    def load(cls, filename):
-        res = None
-        with open(filename, "r") as f:
-            res = cls.from_str(f.read())
-        return res
 
 class _EventSlot(object):
     def __init__(self, name):
