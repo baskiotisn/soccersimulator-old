@@ -10,7 +10,7 @@ import time
 import traceback
 import settings
 from utils import Vector2D, MobileMixin
-from mdpsoccer import Score
+from mdpsoccer import Score, SoccerMatch
 
 
 TEAM1_COLOR = [0.9, 0.1, 0.1]
@@ -516,10 +516,11 @@ class MatchWindow(pyglet.window.Window):
             self._match = self._tournament.cur_match
         self._create_draw = True
         self.change_state(self._match.state)
-        if (team1.name, team1.login) not in self.scores:
-            self.scores[(team1.name, team1.login)] = Score()
-        if (team2.name, team2.login) not in self.scores:
-            self.scores[(team2.name, team2.login)] = Score()
+        if team1 and team2:
+            if (team1.name, team1.login) not in self.scores:
+                self.scores[(team1.name, team1.login)] = Score()
+            if (team2.name, team2.login) not in self.scores:
+                self.scores[(team2.name, team2.login)] = Score()
 
     def begin_round(self, *args, **kwargs):
         return
@@ -528,8 +529,9 @@ class MatchWindow(pyglet.window.Window):
         return
 
     def end_match(self, team1, team2, state, *args, **kwargs):
-        self.scores[(team1.name, team1.login)].add(state.score_team1, state.score_team2)
-        self.scores[(team2.name, team2.login)].add(state.score_team2, state.score_team1)
+        if team1 and team2:
+            self.scores[(team1.name, team1.login)].add(state.score_team1, state.score_team2)
+            self.scores[(team2.name, team2.login)].add(state.score_team2, state.score_team1)
         self._rebuild_panel = True
 
 
@@ -542,4 +544,8 @@ def pyg_stop():
 
 
 def show(match):
+    if isinstance(match,list):
+        MatchWindow().set(SoccerMatch(states=match))
+        return
     MatchWindow().set(match)
+

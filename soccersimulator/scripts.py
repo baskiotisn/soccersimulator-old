@@ -1,52 +1,104 @@
-from mdpsoccer import SoccerTeam, SoccerMatch
-
 import os
 import sys
 import imp
 import shutil
 import argparse
 import pickle
+from collections import namedtuple
+from  soccersimulator import SoccerTournament,show
+
+Groupe = namedtuple("Groupe",["login","projet","noms"])
+defaultpath="/tmp/proj2015/"
 
 
-def dl_from_github(login, project, path):
-    print("Debut import github %s %s" % (login, project))
+def dl_from_github(groupe, path=defaultpath):
+    if type(groupe)==list:
+        for g in groupe: dl_from_github(g,path)
+        return
+    print("Debut import github %s %s" % (groupe.login, groupe.projet))
     if not os.path.exists(path):
         os.mkdir(path)
-    tmp_path = os.path.join(path, login)
+    tmp_path = os.path.join(path, groupe.login)
     shutil.rmtree(tmp_path, ignore_errors=True)
     os.mkdir(tmp_path)
-    os.system("git clone https://github.com/%s/%s %s " % (login, project, tmp_path))
+    os.system("git clone https://github.com/%s/%s %s " % (groupe.login, groupe.projet, tmp_path))
 
 
-def check_date(login, project, path):
-    print login
+def check_date(groupe, path=defaultpath):
+    if type(groupe)==list:
+        for g in groupe: check_date(g,path)
+        return
+    print groupe.login
     os.system("git --git-dir=%s/.git log  --format=\"%%Cgreen%%cd %%Creset \"| cut -d \" \" -f 1-3,7| uniq" %
-              (os.path.join(path, login),))
+              (os.path.join(path, groupe.login),))
 
 
-def import_directory(tournament, path):
-    path = os.path.realpath(path)
-    logins = [login for login in os.listdir(path) if os.path.isdir(os.path.join(path, login))]
-    for l in logins:
-        tournament.add_club(load_club_directory(path, l))
-    return tournament
-
-
-def load_club_directory(path, login=None):
-    projet = path
-    if not login:
-        projet, login = os.path.split(os.path.realpath(path))
-    club_name = login
+def load_teams(path,login):
+    mymod = None
+    if not os.path.exists(os.path.join(path,login,"__init__.py")):
+        print "\033[93m Erreur pour \033[94m%s : \033[91m%s \033[0m" % (login, "__init__.py non trouve")
+        return None
     try:
-        sys.path.insert(0, projet)
+        sys.path.insert(0, path)
         mymod = __import__(login)
-        del sys.path[0]
     except Exception, e:
-        print "\033[93m Erreur pour \033[94m%s : \033[91m%s \033[0m" % (club.login, str(e))
-        print sys.exc_info()[0]
-        return club
-    print "Equipe de \033[92m%s\033[0m charge, \033[92m%s equipes\033[0m" % (login, len(mymod.teams))
-    club.add_teams(mymod.teams)
-    if hasattr(mymod, "name"):
-        club.name = mymod.name
-    return club
+        print "\033[93m Erreur pour \033[94m%s : \033[91m%s \033[0m" % (login, str(e))
+    finally:
+        del sys.path[0]
+    if mymod is None:
+        return None
+    teams = {1:[],2:[],4:[]}
+
+    if hasattr(mymod,"team1"):
+        teams[1].append(mymod.team1)
+    if hasattr(mymod,"team2"):
+        teams[2].append(mymod.team2)
+    if hasattr(mymod,"team4"):
+        teams[4].append(mymod.team4)
+    for t_list in teams.values():
+        for t in t_list:
+            t._login = login
+    print "Equipe de \033[92m%s\033[0m charge, \033[92m%s equipes\033[0m" % (login, sum([len(x) for x in teams.values()]))
+    return teams
+
+
+
+def import_directory(path):
+    teams = {1:[],2:[],4:[]}
+    path = os.path.realpath(path)
+    logins = [login for login in os.listdir(path)
+              if os.path.isdir(os.path.join(path, login))]
+    print logins
+    for l in logins:
+        tmp=load_teams(path,l)
+        if tmp is not None:
+            teams[1]+=tmp[1]
+            teams[2]+=tmp[2]
+            teams[4]+=tmp[4]
+    return teams
+
+
+
+if __name__=="__main__":
+    max_steps =  2000
+    retour = True
+    path=defaultpath
+    replay=True
+    play=True
+    sem=1
+    tournois = {1:SoccerTournament(max_steps=max_steps,nb_players=1,retour=retour),
+                2:SoccerTournament(max_steps=max_steps,nb_players=2,retour=retour),
+                4:SoccerTournament(max_steps=max_steps,nb_players=4,retour=retour)}
+    teams=import_directory(defaultpath)
+    if play:
+        for k in tournois:
+            for t in teams[k]:
+                if not tournois[k].add_team(t):
+                    print "Equipe %s non ajoute, probleme de joueurs (%d joueurs, tournoi de %d)" % (t,t.nb_players,k)
+        for k in tournois:
+            if replay:
+                show(tournois[k])
+            else:
+                tournois[k].play(True)
+            print tournois[k].format_scores()
+            tournois[k].save(os.path.join(path,"res_%d_%d.trnmt" %(k,sem)))
