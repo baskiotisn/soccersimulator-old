@@ -414,8 +414,8 @@ class MatchWindow(pyglet.window.Window):
     def _update_sprites(self):
         team1 = team2 = ongoing = ""
         if self.state:
-            team1 = "%s - %s" % (str(self.get_team(1)), self.state.score_team1)
-            team2 = "%s - %s" % (str(self.get_team(2)), self.state.score_team2)
+            team1 = "%s %s - %s" % (self.get_team(1).name,self.get_team(1).login, self.state.score_team1)
+            team2 = "%s %s - %s" % (self.get_team(2).name, self.get_team(2).login, self.state.score_team2)
             ongoing = "Round : %d/%d" % (self.state.step, self._match.max_steps)
             self.hud.set_val(team1=team1, team2=team2, ongoing=ongoing)
             for k in self.state.players:
