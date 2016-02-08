@@ -8,10 +8,9 @@ from collections import namedtuple
 from  soccersimulator import SoccerTournament,show
 
 Groupe = namedtuple("Groupe",["login","projet","noms"])
-defaultpath="/tmp/proj2015/"
 
 
-def dl_from_github(groupe, path=defaultpath):
+def dl_from_github(groupe, path):
     if type(groupe)==list:
         for g in groupe: dl_from_github(g,path)
         return
@@ -24,7 +23,7 @@ def dl_from_github(groupe, path=defaultpath):
     os.system("git clone https://github.com/%s/%s %s " % (groupe.login, groupe.projet, tmp_path))
 
 
-def check_date(groupe, path=defaultpath):
+def check_date(groupe, path):
     if type(groupe)==list:
         for g in groupe: check_date(g,path)
         return
@@ -78,27 +77,3 @@ def import_directory(path):
     return teams
 
 
-
-if __name__=="__main__":
-    max_steps =  2000
-    retour = True
-    path=defaultpath
-    replay=True
-    play=True
-    sem=1
-    tournois = {1:SoccerTournament(max_steps=max_steps,nb_players=1,retour=retour),
-                2:SoccerTournament(max_steps=max_steps,nb_players=2,retour=retour),
-                4:SoccerTournament(max_steps=max_steps,nb_players=4,retour=retour)}
-    teams=import_directory(defaultpath)
-    if play:
-        for k in tournois:
-            for t in teams[k]:
-                if not tournois[k].add_team(t):
-                    print "Equipe %s non ajoute, probleme de joueurs (%d joueurs, tournoi de %d)" % (t,t.nb_players,k)
-        for k in tournois:
-            if replay:
-                show(tournois[k])
-            else:
-                tournois[k].play(True)
-            print tournois[k].format_scores()
-            tournois[k].save(os.path.join(path,"res_%d_%d.trnmt" %(k,sem)))

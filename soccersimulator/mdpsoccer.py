@@ -137,7 +137,7 @@ AbstractStrategy = BaseStrategy
 
 class KeyboardStrategy(BaseStrategy):
 
-    def __init__(self,name="Commande",fn=None):
+    def __init__(self,name="Commande",fn=None,reset=True):
         BaseStrategy.__init__(self,name)
         self.fn = fn
         self.dic_keys=dict()
@@ -163,18 +163,25 @@ class KeyboardStrategy(BaseStrategy):
             self.name = self.dic_keys[self.cur].name
             self.states.append((self.state, (teamid,player,self.name)))
 
+    def begin_match(self,team1,team2,state):
+        if self.reset:
+            self.states=[]
+
     def end_match(self, team1, team2, state):
         self.write()
 
     def to_str(self):
         return "\n".join("%d,%d,%s|%s" % (k[0],k[1],k[2],s.to_str()) for s,k in self.states)
 
-    def write(self,fn=None):
+    def write(self,fn=None,append = True):
+        mode = "w"
+        if append:
+            mode = "a"
         if not fn:
             fn = self.fn
         if not fn:
             return
-        with file(fn,"w") as f:
+        with file(fn,mode) as f:
             f.write(self.to_str()+"\n")
 
     @classmethod
@@ -300,7 +307,9 @@ class Configuration(Savable):
         :param action:
         :return: Action shoot effectue
         """
-
+        if not (hasattr(action,"acceleration") and hasattr(action,"shoot")):
+            action = SoccerAction()
+            print("Warning : mauvais SoccerAction")
         self._action = action.copy()
         self._state.vitesse *= (1 - settings.playerBrackConstant)
         self._state.vitesse = (self._state.vitesse + self.acceleration).norm_max(settings.maxPlayerSpeed)
@@ -626,12 +635,12 @@ class SoccerTeam(Savable):
         return self.to_str()
 
     def to_str(self):
-        return "%s|%s" % (self.name, "|".join("%s|%s" % (p, s) for (p, s) in zip(self.players_name, self.strategies)))
+        return "%s|%s|%s" % (self.name, self.login, "|".join("%s|%s" % (p, s) for (p, s) in zip(self.players_name, self.strategies)))
 
     @classmethod
     def from_str(cls, strg):
         l_str = strg.split("|")
-        return cls(l_str[0], [Player(name=n, strategy=s) for n, s in
+        return cls(name=l_str[0],login=l_str[1],players= [Player(name=n, strategy=s) for n, s in
                               zip(l_str[1::2], l_str[2::2])])  ##### BUG NE CHARGE PAS LES STRATS OBV
 
     def copy(self):
@@ -710,6 +719,8 @@ class SoccerMatch(Savable):
         self._on_going = False
 
     def get_score(self, idx):
+        if self.state is None:
+            return 0
         return self.state.get_score_team(idx)
 
     def get_team(self, i):
@@ -765,7 +776,7 @@ class SoccerMatch(Savable):
             self._listeners.begin_round(self.team1, self.team2, self.state)
             return
         self._state = SoccerState.create_initial_state(self._team1.nb_players, self._team2.nb_players)
-        self._states = [self.state]
+        self._states = [self.state.copy()]
         self._listeners.begin_match(self.team1, self.team2, self.state)
         self._listeners.begin_round(self.team1, self.team2, self.state)
         for s in self.team1.strategies + self.team2.strategies:
@@ -779,7 +790,7 @@ class SoccerMatch(Savable):
                                           (self._replay and self._step_replay < len(self._states) - 1)):
             self._next_step()
             if not self._replay:
-                self._states.append(self.state)
+                self._states.append(self.state.copy())
             self._listeners.update_round(self.team1, self.team2, self.state)
         self._on_going = False
         self._replay = True
@@ -811,7 +822,10 @@ class SoccerMatch(Savable):
         l_tmp = strg.split("\n")
         res = cls(SoccerTeam.from_str(l_tmp[0]), SoccerTeam.from_str(l_tmp[1]))
         res._states = [SoccerState.from_str(x) for x in l_tmp[2:] if len(x) > 0]
-        res._state = res._states[-1]
+        if len(res._states)>0:
+            res._state = res._states[-1]
+        else:
+            res._state = SoccerState.create_initial_state(res.team1.nb_players,res.team2.nb_players)
         res._replay = True
         return res
 
@@ -923,6 +937,8 @@ class SoccerTournament(Savable):
             t.score.set()
         for m in self._matches.values():
             m.reset()
+        self._kill = False
+        self._replay = False
 
     @property
     def nb_teams(self):
@@ -939,6 +955,8 @@ class SoccerTournament(Savable):
     def play(self, join=True):
         if self._on_going:
             return
+        for m in self._matches.values():
+            m.max_steps = self.max_steps
         self._on_going = True
         self._join = join
         self._list_matches = sorted(self._matches.items())
@@ -995,7 +1013,7 @@ class SoccerTournament(Savable):
         res += "\n".join(
                 "%d,%s\n%s" % (i, team.score.to_str(), team.team.to_str()) for i, team in enumerate(self._teams))
         res += "\n%s" % (self.SEP_MATCH,)
-        res += self.SEP_MATCH.join("%d,%d\n%s\n" % (k[0], k[1], match) for k, match in sorted(self._matches.items()))
+        res += self.SEP_MATCH.join("%d,%d\n%s\n" % (k[0], k[1], match.to_str()) for k, match in sorted(self._matches.items()))
         return res
 
     @classmethod
