@@ -33,7 +33,7 @@ PANEL_BKG_COLOR = [1, 1, 1]
 PANEL_TXT_COLOR = [10, 10, 10, 200]
 PANEL_SCORE_COLOR = [200, 10, 10, 100]
 PANEL_DELTA = 6
-FPS = 30.
+FPS = 50.
 FPS_MOD = 5.
 
 
@@ -297,13 +297,12 @@ class MatchWindow(pyglet.window.Window):
         pyglet.window.key.L: lambda w: w._switch_hud_names(),
         pyglet.window.key.NUM_ADD: lambda w: w._increase_fps(),
         pyglet.window.key.NUM_SUBTRACT: lambda w: w._decrease_fps(),
-        pyglet.window.key.NUM_9: lambda w: w._switch_speed(),
-        pyglet.window.key.O: lambda w: w._switch_speed(),
         pyglet.window.key.N: lambda w: w._switch_manual_step_flag(),
-        pyglet.window.key.M: lambda w: w._switch_manual_step()
+        pyglet.window.key.M: lambda w: w._switch_manual_step(),
+        pyglet.window.key.ENTER : lambda w: w._next_match()
     }
     list_msg = ["Touches :", "p -> jouer", "", "m -> switch manuel/auto", "n -> avancement manuel",
-                "+ -> increases fps", "- -> decreases fps", "esc -> sortir"]
+                "+ -> increases fps", "- -> decreases fps", "enter -> sauter le match", "esc -> sortir"]
 
     def __init__(self, width=1200, height=800):
         pyglet.window.Window.__init__(self, width=width, height=height, resizable=True)
@@ -321,12 +320,12 @@ class MatchWindow(pyglet.window.Window):
         self._manual_step=False
         self._create_draw = True
         self._to_update = True
-        self._speed = False
         self._tournament = None
         self.scores = dict()
         self._rebuild_panel = False
         self._kill = False
         self._manual_step_flag = False
+        self._pnext = False
         pyglet.clock.schedule_interval(self.update, 1. / 25)
 
     def set(self, match, run=True):
@@ -414,8 +413,10 @@ class MatchWindow(pyglet.window.Window):
     def _update_sprites(self):
         team1 = team2 = ongoing = ""
         if self.state:
-            team1 = "%s %s - %s" % (self.get_team(1).name,self.get_team(1).login, self.state.score_team1)
-            team2 = "%s %s - %s" % (self.get_team(2).name, self.get_team(2).login, self.state.score_team2)
+            if self.get_team(1):
+                team1 = "%s %s - %s" % (self.get_team(1).name,self.get_team(1).login, self.state.score_team1)
+            if self.get_team(2):
+                team2 = "%s %s - %s" % (self.get_team(2).name, self.get_team(2).login, self.state.score_team2)
             ongoing = "Round : %d/%d" % (self.state.step, self._match.max_steps)
             self.hud.set_val(team1=team1, team2=team2, ongoing=ongoing)
             for k in self.state.players:
@@ -427,7 +428,9 @@ class MatchWindow(pyglet.window.Window):
 
     def update_round(self, team1, team2, state):
         self.change_state(state)
-        if not self._speed and not self._manual_step:
+        if self._pnext:
+            return
+        if not self._manual_step:
             time.sleep(1. / self._fps)
         if self._manual_step:
             self._manual_step_flag = True
@@ -445,7 +448,8 @@ class MatchWindow(pyglet.window.Window):
 
     def _switch_manual_step_flag(self):
         self._manual_step_flag = False
-
+    def _next_match(self):
+        self._pnext = True
     def _switch_manual_step(self):
         self._manual_step = not self._manual_step
         if not self._manual_step:
@@ -453,9 +457,6 @@ class MatchWindow(pyglet.window.Window):
 
     def _switch_hud_names(self):
         self._hud_names = not self._hud_names
-
-    def _switch_speed(self):
-        self._speed = not self._speed
 
     def on_draw(self):
         self.render()
@@ -533,6 +534,7 @@ class MatchWindow(pyglet.window.Window):
             self.scores[(team1.name, team1.login)].add(state.score_team1, state.score_team2)
             self.scores[(team2.name, team2.login)].add(state.score_team2, state.score_team1)
         self._rebuild_panel = True
+        self._pnext = False
 
 
 def pyg_start():
