@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-<
-
+import signal
 import math
 import string
 import random
@@ -421,3 +421,28 @@ class SoccerEvents(Events):
             except:
                 pass
         return self
+#
+# def deadline(timeout, *args):
+#     p =  None
+#     def decorate(f):
+#         def new_f(*args):
+#             def handler(pr):
+#                 print "handled"
+#                 pr.terminate()
+#             def run(r):
+#                 r.put(f(*args))
+#                 print("here %d" %(r.qsize(),))
+#             result = multiprocessing.Queue()
+#             p = multiprocessing.Process(target = run,args=(result,))
+#             tmer = threading.Timer(timeout,lambda : handler(p))
+#             p.start()
+#             print("here5")
+#             p.join()
+#             tmer.cancel()
+#             print "timed out %d" %(result.qsize(),)
+#             if result.qsize()>0:
+#                 return result.get()
+#             return None
+#         new_f.__name__ = f.__name__
+#         return new_f
+#     return decorate

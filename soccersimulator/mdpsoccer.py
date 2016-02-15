@@ -5,10 +5,11 @@ import threading
 from collections import namedtuple
 from threading import Lock
 from copy import deepcopy
-from utils import Vector2D, MobileMixin, SoccerEvents, DecodeException, Savable
+from utils import Vector2D, MobileMixin, SoccerEvents, DecodeException, Savable#, deadline
 import settings
 import random
 import time
+import zipfile
 
 ###############################################################################
 # SoccerAction
@@ -199,6 +200,7 @@ class KeyboardStrategy(BaseStrategy):
             return cls.from_str(f.read())
 
 
+
 ###############################################################################
 # Ball
 ###############################################################################
@@ -309,7 +311,7 @@ class Configuration(Savable):
         """
         if not (hasattr(action,"acceleration") and hasattr(action,"shoot")):
             action = SoccerAction()
-            print("Warning : mauvais SoccerAction")
+            #print("Warning : mauvais SoccerAction")
         self._action = action.copy()
         self._state.vitesse *= (1 - settings.playerBrackConstant)
         self._state.vitesse = (self._state.vitesse + self.acceleration).norm_max(settings.maxPlayerSpeed)
@@ -329,16 +331,15 @@ class Configuration(Savable):
 
     @staticmethod
     def _rd_angle(shoot,dangle,dist):
-        return shoot
         eliss = lambda x, alpha: (math.exp(alpha*x)-1)/(math.exp(alpha)-1)
         dangle = abs((dangle+math.pi*2) %(math.pi*2) -math.pi)
-        dangle_factor = eliss(1.-max(dangle-math.pi/2,0)/(math.pi/2.),10)
-        norm_factor = 1-eliss(shoot.norm/settings.maxPlayerShoot,3)
-        dist_factor = 1-eliss(dist,2)
-        angle_prc = dangle_factor*norm_factor*dist_factor
-        return Vector2D(norm =shoot.norm,angle = shoot.angle +2*(random.random()-0.5)*angle_prc*settings.shootRandomAngle*math.pi/2.)
-        norm_prc = (1-dangle_factor)*(1-dist_factor)*0.3
-        return Vector2D(norm=shoot.norm*(1-norm_prc), angle=shoot.angle+2*(random.random()-0.5) *angle_prc*settings.shootRandomAngle*math.pi/2.)
+        dangle_factor =eliss(1.-max(dangle-math.pi/2,0)/(math.pi/2.),5)
+        norm_factor = eliss(shoot.norm/settings.maxPlayerShoot,4)
+        dist_factor = eliss(dist,10)
+        angle_prc = (1-(1.-dangle_factor)*(1.-norm_factor)*(1.-0.5*dist_factor))*settings.shootRandomAngle*math.pi/2.
+        norm_prc = 1-0.3*dist_factor*dangle_factor
+        return Vector2D(norm=shoot.norm*norm_prc,
+                        angle=shoot.angle+2*(random.random()-0.5)*angle_prc)
 
     def can_shoot(self):
         """ Le joueur peut-il shooter
@@ -538,16 +539,24 @@ class SoccerState(Savable):
         if nb_players_2 == 2:
             self._configs[(2, 0)] = Configuration.from_position(rows[3], quarters[0])
             self._configs[(2, 1)] = Configuration.from_position(rows[3], quarters[2])
+        if nb_players_1 == 3:
+            self._configs[(1, 0)] = Configuration.from_position(rows[0], quarters[1])
+            self._configs[(1, 1)] = Configuration.from_position(rows[0], quarters[0])
+            self._configs[(1, 2)] = Configuration.from_position(rows[0], quarters[2])
+        if nb_players_2 == 3:
+            self._configs[(2, 0)] = Configuration.from_position(rows[3], quarters[1])
+            self._configs[(2, 1)] = Configuration.from_position(rows[3], quarters[0])
+            self._configs[(2, 1)] = Configuration.from_position(rows[3], quarters[2])
         if nb_players_1 == 4:
             self._configs[(1, 0)] = Configuration.from_position(rows[0], quarters[0])
             self._configs[(1, 1)] = Configuration.from_position(rows[0], quarters[2])
             self._configs[(1, 2)] = Configuration.from_position(rows[1], quarters[0])
             self._configs[(1, 3)] = Configuration.from_position(rows[1], quarters[2])
         if nb_players_2 == 4:
-            self._configs[(2, 0)] = Configuration.from_position(rows[2], quarters[0])
-            self._configs[(2, 1)] = Configuration.from_position(rows[2], quarters[2])
-            self._configs[(2, 2)] = Configuration.from_position(rows[3], quarters[0])
-            self._configs[(2, 3)] = Configuration.from_position(rows[3], quarters[2])
+            self._configs[(2, 0)] = Configuration.from_position(rows[3], quarters[0])
+            self._configs[(2, 1)] = Configuration.from_position(rows[3], quarters[2])
+            self._configs[(2, 2)] = Configuration.from_position(rows[2], quarters[0])
+            self._configs[(2, 3)] = Configuration.from_position(rows[2], quarters[2])
         self.ball = Ball.from_position(settings.GAME_WIDTH / 2, settings.GAME_HEIGHT / 2)
         self._winning_team = 0
 
@@ -615,6 +624,7 @@ class SoccerTeam(Savable):
         """
         return self._players[idx].strategy
 
+    #@deadline(1)
     def compute_strategies(self, state, id_team):
         """ calcule les actions de tous les joueurs
         :param state: etat courant
@@ -760,8 +770,23 @@ class SoccerMatch(Savable):
         if self._replay:
             self._state = self._states[self._step_replay]
         else:
-            actions = self.team1.compute_strategies(self.state, 1)
-            actions.update(self.team2.compute_strategies(self.state, 2))
+            actions=None
+            try:
+                actions = self.team1.compute_strategies(self.state, 1)
+            except Exception,e:
+                print e
+                self._state.step=self.max_steps
+                self._state._score[2]+=10
+                print("Error for team 1 -- loose match")
+            if self.team2:
+                try:
+                    actions.update(self.team2.compute_strategies(self.state, 2))
+                except Exception,e:
+                    print e
+                    self._state.step=self.max_steps
+                    self._state._score[1]+=10
+                    print("Error for team 2 -- loose match")
+
             self._state.apply_actions(actions)
         self._lock.release()
 
@@ -1016,6 +1041,20 @@ class SoccerTournament(Savable):
         res += self.SEP_MATCH.join("%d,%d\n%s\n" % (k[0], k[1], match.to_str()) for k, match in sorted(self._matches.items()))
         return res
 
+
+    @classmethod
+    def load(cls, filename):
+        res = None
+        if zipfile.is_zipfile(filename):
+            zf = zipfile.ZipFile(filename)
+            fn = zf.infolist()[0].filename
+            res = cls.from_str(zf.read(fn))
+            return res
+        with open(filename, "r") as f:
+            res = cls.from_str(f.read())
+        return res
+
+
     @classmethod
     def from_str(cls, strg):
         res = cls()
@@ -1047,8 +1086,9 @@ class SoccerTournament(Savable):
 
     def begin_match(self, *args, **kwargs):
         if self.verbose:
-            print("Debut match %d/%d : %s vs %s" % (self.nb_matches - len(self._list_matches), self.nb_matches,
-                                                    self.cur_match.get_team(1).name, self.cur_match.get_team(2).name))
+            print("Debut match %d/%d : %s (%s) vs %s (%s)" % (self.nb_matches - len(self._list_matches), self.nb_matches,
+                                                    self.cur_match.get_team(1).name,self.cur_match.get_team(1).login,
+                                                    self.cur_match.get_team(2).name,self.cur_match.get_team(2).login))
         self._listeners.begin_match(*args, **kwargs)
 
     def begin_round(self, *args, **kwargs):
