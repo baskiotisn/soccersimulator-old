@@ -905,10 +905,10 @@ class Score(Savable):
         return "%d (%d,%d,%d) - [%d,%d] " % (self.points, self.win, self.draw, self.loose, self.gf, self.ga)
 
     def __lt__(self, other):
-        return (self.points, self.diff, self.gf, -self.ga) < (other.score, other.diff, other.gf, -other.ga)
+        return (self.points, self.diff, self.gf, -self.ga) < (other.points, other.diff, other.gf, -other.ga)
 
     def __eq__(self, other):
-        return (self.points, self.diff, self.gf, -self.ga) == (other.score, other.diff, other.gf, -other.ga)
+        return (self.points, self.diff, self.gf, -self.ga) == (other.points, other.diff, other.gf, -other.ga)
 
     def to_str(self):
         return "(%d,%d,%d,%d,%d)" % (self.win, self.draw, self.loose, self.gf, self.ga)
@@ -1027,7 +1027,7 @@ class SoccerTournament(Savable):
         sc = sorted([(t.score, t.team) for t in self._teams], reverse=True)
         res = ["\033[92m%s\033[0m (\033[93m%s\033[m) : %s" % (team.name, team.login, str(score)) for score, team in sc]
         return "\033[93m***\033[0m \033[95m Resultats pour le tournoi \033[92m%d joueurs\033[0m : \033[93m***\33[0m \n\t%s\n\n" % \
-               (self.nb_teams, "\n\t".join(res))
+               (self.nb_players, "\n\t".join(res))
 
     def __str__(self):
         return "Tournoi %d joueurs,  %d equipes, %d matches" %(self.nb_players,self.nb_teams,self.nb_matches)
