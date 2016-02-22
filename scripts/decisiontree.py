@@ -26,7 +26,7 @@ def build_apprentissage(fn,generator):
     exemples = []
     labels = []
     for x in ex_raw:
-        exemples.append(gen_features(x[1],x[0][0],x[0][1]))
+        exemples.append(generator(x[1],x[0][0],x[0][1]))
         labels.append(x[0][2])
     return exemples,labels
 
@@ -50,6 +50,6 @@ if False:
     ## apprentissage de l'arbre
     tree = apprendre_arbre(train,labels)
     ## sauvegarde de l'arbre
-    cPickle.dumps(tree,file("tree.pkl","w"))
+    cPickle.dump(tree,file("tree.pkl","w"))
 
 
