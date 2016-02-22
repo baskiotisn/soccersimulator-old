@@ -941,13 +941,13 @@ class SoccerTournament(Savable):
         if score is None:
             score = Score()
         if self.nb_players and self.nb_players != team.nb_players:
-            return False
+            return -1
         self._teams.append(self.TeamTuple(team, score))
         if self.nb_teams > 1:
             for i, t in enumerate(self.teams[:-1]):
                 self._matches[(i, self.nb_teams - 1)] = SoccerMatch(t, team, self.max_steps)
                 if self._retour: self._matches[(self.nb_teams - 1, i)] = SoccerMatch(team, t, self.max_steps)
-        return True
+        return self.nb_teams-1
 
     def get_team(self, i):
         if type(i) == str:
