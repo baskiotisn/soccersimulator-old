@@ -62,12 +62,11 @@ def load_teams(path,login):
 
 
 
-def import_directory(path):
+def import_directory(path,logins = None):
     teams = {1:[],2:[],4:[]}
     path = os.path.realpath(path)
     logins = [login for login in os.listdir(path)
-              if os.path.isdir(os.path.join(path, login))]
-    print logins
+              if os.path.isdir(os.path.join(path, login)) and (logins is None or login in logins)]
     for l in logins:
         tmp=load_teams(path,l)
         if tmp is not None:
