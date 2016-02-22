@@ -10,7 +10,7 @@ import settings
 import random
 import time
 import zipfile
-
+import traceback
 ###############################################################################
 # SoccerAction
 ###############################################################################
@@ -774,7 +774,7 @@ class SoccerMatch(Savable):
             try:
                 actions = self.team1.compute_strategies(self.state, 1)
             except Exception,e:
-                print e
+                print(e, traceback.print_exc())
                 self._state.step=self.max_steps
                 self._state._score[2]+=10
                 print("Error for team 1 -- loose match")
@@ -782,7 +782,7 @@ class SoccerMatch(Savable):
                 try:
                     actions.update(self.team2.compute_strategies(self.state, 2))
                 except Exception,e:
-                    print e
+                    print(e, traceback.print_exc())
                     self._state.step=self.max_steps
                     self._state._score[1]+=10
                     print("Error for team 2 -- loose match")
