@@ -1,6 +1,6 @@
 import argparse
 from soccersimulator import SoccerTournament,SoccerTeam,SoccerMatch
-from soccersimulator.scripts import *
+from scripts import *
 import datetime
 
 try:
