@@ -2,6 +2,7 @@ from soccersimulator import SoccerMatch, SoccerTournament,KeyboardStrategy
 from soccersimulator import SoccerTeam, Player, show
 from strategies import RandomStrategy,FonceurStrategy,DefenseStrategy
 from soccersimulator import settings, Vector2D,DecisionTreeClassifier
+from soccersimulator import export_graphviz
 import cPickle
 
 strat_key = KeyboardStrategy()
@@ -35,6 +36,21 @@ def apprendre_arbre(train,labels,depth=5):
     tree.fit(train,labels)
     return tree
 
+def affiche_arbre(tree):
+    long = 10
+    sep1="|"+"-"*(long-1)
+    sepl="|"+" "*(long-1)
+    sepr=" "*long
+    def aux(node,sep):
+        if tree.tree_.children_left[node]<0:
+            ls ="(%s)" % (", ".join( "%s: %d" %(tree.classes_[i],int(x)) for i,x in enumerate(tree.tree_.value[node].flat)))
+            return sep+sep1+"%s\n" % (ls,)
+        return (sep+sep1+"X%d<=%0.2f\n"
+                +"%s"
+                +sep+sep1+"X%d>%0.2f\n"
+                +"%s" )% (tree.tree_.feature[node],tree.tree_.threshold[node],aux(tree.tree_.children_left[node],sep+sepl),
+                                   tree.tree_.feature[node],tree.tree_.threshold[node],aux(tree.tree_.children_right[node],sep+sepr))
+    return aux(0,"")
 
 
 ## Match d'entrainement et apprentissage de l'arbre
@@ -51,5 +67,9 @@ if False:
     tree = apprendre_arbre(train,labels)
     ## sauvegarde de l'arbre
     cPickle.dump(tree,file("tree.pkl","w"))
-
+    ## exporter l'arbre en .dot
+    with file("tree.dot","w") as fn:
+        export_graphviz(tree,fn)
+    ## puis utiliser ou dot -Tpdf -o tree.pdf tree.dot pour convertir
+    ## ou aller sur http://www.webgraphviz.com/ et copier le fichier .dot
 
