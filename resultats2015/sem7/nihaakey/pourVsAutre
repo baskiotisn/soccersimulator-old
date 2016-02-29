@@ -1,0 +1,15 @@
+se mettre repertoire 2I013
+taper ipython
+cd ..
+pwd
+taper from soccersimulator import SoccerMatch, show
+pwd
+cd private/2I013/soccersimulator/resultats2015/sem5
+ls
+import le repertoire (acces avec nom_rep.team1 pour team1)
+se mettre rep 2I013
+from team import team1,team2
+show(SoccerMatch(team1,nom_rep.team1)
+
+
+
