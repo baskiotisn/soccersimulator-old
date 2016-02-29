@@ -30,16 +30,3 @@ class DefenseStrategy(BaseStrategy):
                                 hisg-state.ball.position)
         return SoccerAction(myg-state.player_state(id_team,id_player).position,Vector2D())
 
-
-class DTreeStrategy(BaseStrategy):
-    def __init__(self,tree,dic,gen_feat):
-        BaseStrategy.__init__(self,"Tree Strategy")
-        self.dic = dic
-        self.tree = tree
-        self.gen_feat= gen_feat
-    def compute_strategy(self, state, id_team, id_player):
-        label = self.tree.predict(self.gen_feat(state,id_team,id_player))[0]
-        if label not in self.dic:
-            print("Erreur : strategie %s non trouve" %(label,))
-            return SoccerAction()
-        return self.dic[label].compute_strategy(state,id_team,id_player)
