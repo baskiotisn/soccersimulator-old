@@ -565,7 +565,7 @@ class SoccerState(Savable):
 ###############################################################################
 
 Player = namedtuple("Player", ["name", "strategy"])
-
+SoccerPlayer = Player
 
 class SoccerTeam(Savable):
     """ Equipe de foot. Comporte une  liste ordonnee de  Player.
@@ -777,6 +777,7 @@ class SoccerMatch(Savable):
                 print(e, traceback.print_exc())
                 self._state.step=self.max_steps
                 self._state._score[2]+=10
+                actions = dict()
                 print("Error for team 1 -- loose match")
             if self.team2:
                 try:
@@ -800,12 +801,12 @@ class SoccerMatch(Savable):
             self._listeners.begin_match(self.team1, self.team2, self.state)
             self._listeners.begin_round(self.team1, self.team2, self.state)
             return
+        for s in self.team1.strategies + self.team2.strategies:
+            self._listeners += s
         self._state = SoccerState.create_initial_state(self._team1.nb_players, self._team2.nb_players)
         self._states = [self.state.copy()]
         self._listeners.begin_match(self.team1, self.team2, self.state)
         self._listeners.begin_round(self.team1, self.team2, self.state)
-        for s in self.team1.strategies + self.team2.strategies:
-            self._listeners += s
 
     def _play(self):
         if not self._thread or self._on_going:
