@@ -8,7 +8,6 @@ try:
 except:
     liste_login=  None
 
-
 defaultpath="/tmp/proj2015/"
 
 
@@ -16,19 +15,18 @@ if __name__=="__main__":
     parse = argparse.ArgumentParser(description="Soccersimulator Main")
     parse.add_argument('-path',action='store',default=defaultpath,help="Import directory DIR")
     parse.add_argument('-git',action='store_true',default=False,help="Import github to directory")
-    parse.add_argument('-noplay',action="store_true",default=False,help="Play the games")
+    parse.add_argument('-noplay',action="store_true",default=False,help="Don't play the games")
     parse.add_argument('-steps', action="store",dest='max_steps',type=int,default=2000,help="Max steps")
     parse.add_argument('-nbp',nargs='+',type=int,help="List of type of tournament (number of player, 1,2 or 4)")
     parse.add_argument('-login',nargs='+',default=None,help='List of logins to play')
-    parse.add_argument('-only',nargs="+",default=None,help="Play only matches includeing logins")
-    parse.add_argument('-nosave',action="store_true",default=False,help="Save scores and matches")
+    parse.add_argument('-only',nargs="+",default=None,help="Play only matches including logins")
+    parse.add_argument('-nosave',action="store_true",default=False,help="Don't save scores and matches")
     parse.add_argument('-replay',action="store",help="Watch replay")
-    parse.add_argument('-nowatch',action="store_true",default=False,help="Watch live")
-    parse.add_argument('-noretour',action="store_true",default=False,help="Play 2 sides matches")
+    parse.add_argument('-nowatch',action="store_true",default=False,help="Don't watch live")
+    parse.add_argument('-noretour',action="store_true",default=False,help="Play 1 sides matches")
     parse.add_argument('-date',action="store_true",default=False)
     args=parse.parse_args()
     path = args.path
-    print args
     fname = str(datetime.datetime.now()).replace("-","").split(" ")[0]
     nb_tournois = args.nbp if args.nbp else [1,2,4]
     retour = not args.noretour
