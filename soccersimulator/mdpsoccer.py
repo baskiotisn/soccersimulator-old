@@ -546,7 +546,7 @@ class SoccerState(Savable):
         if nb_players_2 == 3:
             self._configs[(2, 0)] = Configuration.from_position(rows[3], quarters[1])
             self._configs[(2, 1)] = Configuration.from_position(rows[3], quarters[0])
-            self._configs[(2, 1)] = Configuration.from_position(rows[3], quarters[2])
+            self._configs[(2, 2)] = Configuration.from_position(rows[3], quarters[2])
         if nb_players_1 == 4:
             self._configs[(1, 0)] = Configuration.from_position(rows[0], quarters[0])
             self._configs[(1, 1)] = Configuration.from_position(rows[0], quarters[2])
@@ -661,7 +661,7 @@ class SoccerMatch(Savable):
     """ Match de foot.
     """
 
-    def __init__(self, team1=None, team2=None, max_steps=settings.MAX_GAME_STEPS, states = None):
+    def __init__(self, team1=None, team2=None, max_steps=settings.MAX_GAME_STEPS, states = None,init_state=None):
         """
         :param team1: premiere equipe
         :param team2: deuxieme equipe
@@ -677,6 +677,7 @@ class SoccerMatch(Savable):
         self._replay = False
         self._step_replay = 0
         self._states = []  # [self.state]
+        self.init_state = init_state
         if states:
             self.states = states
 
@@ -803,7 +804,10 @@ class SoccerMatch(Savable):
             return
         for s in self.team1.strategies + self.team2.strategies:
             self._listeners += s
-        self._state = SoccerState.create_initial_state(self._team1.nb_players, self._team2.nb_players)
+        if not self.init_state:
+            self._state = SoccerState.create_initial_state(self._team1.nb_players, self._team2.nb_players)
+        else:
+            self._state = self.init_state.copy()
         self._states = [self.state.copy()]
         self._listeners.begin_match(self.team1, self.team2, self.state)
         self._listeners.begin_round(self.team1, self.team2, self.state)
