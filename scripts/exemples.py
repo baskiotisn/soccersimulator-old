@@ -6,8 +6,9 @@ import cPickle
 
 
 #### Arbres de decisions
-
-tree = cPickle.load(file("./test.pkl"))
+import os
+fn=os.path.join(os.path.dirname(os.path.realpath(__file__)),"test.pkl")
+tree = cPickle.load(file(fn))
 dic = {"Random":RandomStrategy(),"Fonceur":FonceurStrategy(),"Defense":DefenseStrategy()}
 treeStrat = DTreeStrategy(tree,dic,gen_features)
 

@@ -145,6 +145,7 @@ class KeyboardStrategy(BaseStrategy):
         self.cur = None
         self.states=[]
         self.state=None
+	self.reset= reset
 
     def add(self,key,strategy):
         self.dic_keys[key]=strategy
