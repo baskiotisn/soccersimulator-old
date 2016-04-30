@@ -10,7 +10,7 @@ import settings
 import random
 import time
 import zipfile
-import traceback
+
 ###############################################################################
 # SoccerAction
 ###############################################################################
@@ -63,7 +63,7 @@ class SoccerAction(Savable):
 # SoccerStrategy
 ##############################################################################
 
-class BaseStrategy:
+class BaseStrategy(object):
     """ Strategie : la fonction compute_strategie est interroge a chaque tour de jeu, elle doit retourner un objet
     SoccerAction
     """
@@ -145,7 +145,6 @@ class KeyboardStrategy(BaseStrategy):
         self.cur = None
         self.states=[]
         self.state=None
-	self.reset= reset
 
     def add(self,key,strategy):
         self.dic_keys[key]=strategy
@@ -183,7 +182,7 @@ class KeyboardStrategy(BaseStrategy):
             fn = self.fn
         if not fn:
             return
-        with file(fn,mode) as f:
+        with open(fn,mode) as f:
             f.write(self.to_str()+"\n")
 
     @classmethod
@@ -547,7 +546,7 @@ class SoccerState(Savable):
         if nb_players_2 == 3:
             self._configs[(2, 0)] = Configuration.from_position(rows[3], quarters[1])
             self._configs[(2, 1)] = Configuration.from_position(rows[3], quarters[0])
-            self._configs[(2, 2)] = Configuration.from_position(rows[3], quarters[2])
+            self._configs[(2, 1)] = Configuration.from_position(rows[3], quarters[2])
         if nb_players_1 == 4:
             self._configs[(1, 0)] = Configuration.from_position(rows[0], quarters[0])
             self._configs[(1, 1)] = Configuration.from_position(rows[0], quarters[2])
@@ -566,7 +565,7 @@ class SoccerState(Savable):
 ###############################################################################
 
 Player = namedtuple("Player", ["name", "strategy"])
-SoccerPlayer = Player
+
 
 class SoccerTeam(Savable):
     """ Equipe de foot. Comporte une  liste ordonnee de  Player.
@@ -662,7 +661,7 @@ class SoccerMatch(Savable):
     """ Match de foot.
     """
 
-    def __init__(self, team1=None, team2=None, max_steps=settings.MAX_GAME_STEPS, states = None,init_state=None):
+    def __init__(self, team1=None, team2=None, max_steps=settings.MAX_GAME_STEPS, states = None):
         """
         :param team1: premiere equipe
         :param team2: deuxieme equipe
@@ -678,7 +677,7 @@ class SoccerMatch(Savable):
         self._replay = False
         self._step_replay = 0
         self._states = []  # [self.state]
-        self.init_state = init_state
+        self.strats= []
         if states:
             self.states = states
 
@@ -775,17 +774,16 @@ class SoccerMatch(Savable):
             actions=None
             try:
                 actions = self.team1.compute_strategies(self.state, 1)
-            except Exception,e:
-                print(e, traceback.print_exc())
+            except Exception as e:
+                print(e)
                 self._state.step=self.max_steps
                 self._state._score[2]+=10
-                actions = dict()
                 print("Error for team 1 -- loose match")
             if self.team2:
                 try:
                     actions.update(self.team2.compute_strategies(self.state, 2))
-                except Exception,e:
-                    print(e, traceback.print_exc())
+                except Exception as e:
+                    print(e)
                     self._state.step=self.max_steps
                     self._state._score[1]+=10
                     print("Error for team 2 -- loose match")
@@ -803,15 +801,13 @@ class SoccerMatch(Savable):
             self._listeners.begin_match(self.team1, self.team2, self.state)
             self._listeners.begin_round(self.team1, self.team2, self.state)
             return
-        for s in self.team1.strategies + self.team2.strategies:
-            self._listeners += s
-        if not self.init_state:
-            self._state = SoccerState.create_initial_state(self._team1.nb_players, self._team2.nb_players)
-        else:
-            self._state = self.init_state.copy()
+        self._state = SoccerState.create_initial_state(self._team1.nb_players, self._team2.nb_players)
         self._states = [self.state.copy()]
+        self.strats = [ (tuple(str(x) for x in self.team1.strategies),tuple(str(x) for x in self.team2.strategies))]
         self._listeners.begin_match(self.team1, self.team2, self.state)
         self._listeners.begin_round(self.team1, self.team2, self.state)
+        for s in self.team1.strategies + self.team2.strategies:
+            self._listeners += s
 
     def _play(self):
         if not self._thread or self._on_going:
@@ -822,6 +818,7 @@ class SoccerMatch(Savable):
             self._next_step()
             if not self._replay:
                 self._states.append(self.state.copy())
+                self.strats.append((tuple(str(x) for x in self.team1.strategies),tuple(str(x) for x in self.team2.strategies)))
             self._listeners.update_round(self.team1, self.team2, self.state)
         self._on_going = False
         self._replay = True
@@ -911,10 +908,10 @@ class Score(Savable):
         return "%d (%d,%d,%d) - [%d,%d] " % (self.points, self.win, self.draw, self.loose, self.gf, self.ga)
 
     def __lt__(self, other):
-        return (self.points, self.diff, self.gf, -self.ga) < (other.points, other.diff, other.gf, -other.ga)
+        return (self.points, self.diff, self.gf, -self.ga) < (other.score, other.diff, other.gf, -other.ga)
 
     def __eq__(self, other):
-        return (self.points, self.diff, self.gf, -self.ga) == (other.points, other.diff, other.gf, -other.ga)
+        return (self.points, self.diff, self.gf, -self.ga) == (other.score, other.diff, other.gf, -other.ga)
 
     def to_str(self):
         return "(%d,%d,%d,%d,%d)" % (self.win, self.draw, self.loose, self.gf, self.ga)
@@ -947,13 +944,13 @@ class SoccerTournament(Savable):
         if score is None:
             score = Score()
         if self.nb_players and self.nb_players != team.nb_players:
-            return -1
+            return False
         self._teams.append(self.TeamTuple(team, score))
         if self.nb_teams > 1:
             for i, t in enumerate(self.teams[:-1]):
                 self._matches[(i, self.nb_teams - 1)] = SoccerMatch(t, team, self.max_steps)
                 if self._retour: self._matches[(self.nb_teams - 1, i)] = SoccerMatch(team, t, self.max_steps)
-        return self.nb_teams-1
+        return True
 
     def get_team(self, i):
         if type(i) == str:
@@ -1033,7 +1030,7 @@ class SoccerTournament(Savable):
         sc = sorted([(t.score, t.team) for t in self._teams], reverse=True)
         res = ["\033[92m%s\033[0m (\033[93m%s\033[m) : %s" % (team.name, team.login, str(score)) for score, team in sc]
         return "\033[93m***\033[0m \033[95m Resultats pour le tournoi \033[92m%d joueurs\033[0m : \033[93m***\33[0m \n\t%s\n\n" % \
-               (self.nb_players, "\n\t".join(res))
+               (self.nb_teams, "\n\t".join(res))
 
     def __str__(self):
         return "Tournoi %d joueurs,  %d equipes, %d matches" %(self.nb_players,self.nb_teams,self.nb_matches)
